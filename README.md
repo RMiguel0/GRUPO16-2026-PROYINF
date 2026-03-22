@@ -1,12 +1,13 @@
-# GRUPO STRUCTURA-2025-PROYINF# Grupo 07
+# GRUPO STRUCTURA-2025-PROYINF# Grupo 16
 
-Este es el repositorio del **Grupo 07**, cuyos integrantes son:
+Este es el repositorio del **Grupo 16**, cuyos integrantes son:
 
 *	CARDENAS VICTOR - 202304528-4
 *	DELGADO GABRIEL - 202373610-4
+*	MÉNDEZ MAXIMILIANO - 202273630-5
 *	REYES MIGUEL - 202273620-8
 *	RIVERO MIGUEL - 202373518-3
-*	*Tutor*: JAVIERA CRISTINA OSORIO MARDONES
+*	*Tutor*: Carlos Arévalo
 
 ## Wiki
 
