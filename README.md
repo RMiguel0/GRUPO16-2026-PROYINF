@@ -9,6 +9,8 @@ Este es el repositorio del **Grupo 16**, cuyos integrantes son:
 *	RIVERO MIGUEL - 202373518-3
 *	*Tutor*: Carlos Arévalo
 
+Durante este semestre 2026-1, se continuará trabajando el proyecto del grupo "Structura" (Grupo 07) del semestre pasado 2025-2.
+
 ## Wiki
 
 Puede acceder a la Wiki mediante el siguiente [enlace](https://github.com/RMiguel0/GRUPOSTRUCTURA-2025-PROYINF/wiki)
