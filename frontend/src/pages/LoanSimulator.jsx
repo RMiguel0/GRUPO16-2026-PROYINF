@@ -7,6 +7,8 @@ import { FinancialOverview } from '../components/FinancialOverview.jsx';
 import { SimulationHistory } from '../components/SimulationHistory.jsx';
 import { BankComparison } from '../components/BankComparison.jsx';
 import { useSimulaciones } from '../hooks/useSimulaciones.js';
+import AuthMenu from "../components/AuthMenu.jsx";
+import LoginModal from "../components/LoginModal.jsx";
 
 /**
  * Main page for the loan simulator. Handles fetching of previous simulations
@@ -85,20 +87,28 @@ export function LoanSimulator() {
   const bciData = null;
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
-      <div className="container mx-auto px-4 py-8">
-        <div className="mb-8 text-center">
-          <h1 className="text-4xl font-bold text-gray-800 mb-2">Simulador de Creditos</h1>
-          <p className="text-gray-600">
-            Compara tasas, calcula pagos y encuentra la mejor oferta
-          </p>
-        </div>
+      <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-200">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+          <div>
+            <h1 className="text-2xl md:text-3xl font-bold text-gray-800">
+              Simulador de Créditos
+            </h1>
+            <p className="text-sm text-gray-500">
+              Compara tasas, calcula pagos y encuentra la mejor oferta
+            </p>
+          </div>
 
+          <AuthMenu />
+        </div>
+      </header>
+
+      <div className="container mx-auto px-4 py-8">
         <div className="grid lg:grid-cols-3 gap-6 mb-6">
           <div className="lg:col-span-2">
-            <LoanForm 
+            <LoanForm
               initialAmount={simulacionCargada?.amount}
               initialTermMonths={simulacionCargada?.termMonths}
-              onCalculate={setCurrentCalculation} 
+              onCalculate={setCurrentCalculation}
             />
           </div>
 
@@ -125,7 +135,11 @@ export function LoanSimulator() {
         </div>
 
         <div className="mb-6">
-          <SimulationHistory simulations={simulaciones} onDelete={deleteSimulation} onLoad={handleLoad}/>
+          <SimulationHistory
+            simulations={simulaciones}
+            onDelete={deleteSimulation}
+            onLoad={handleLoad}
+          />
         </div>
 
         <div>
@@ -138,6 +152,8 @@ export function LoanSimulator() {
           />
         </div>
       </div>
+
+      <LoginModal />
     </div>
   );
 }
