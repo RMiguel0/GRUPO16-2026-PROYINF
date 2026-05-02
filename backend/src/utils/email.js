@@ -1,19 +1,37 @@
-import sgMail from "@sendgrid/mail";
+import nodemailer from "nodemailer";
 
-const API_KEY = process.env.SENDGRID_API_KEY;
-const MAIL_FROM = process.env.MAIL_FROM;
+const GMAIL_USER = process.env.GMAIL_USER;
+const GMAIL_APP_PASSWORD = process.env.GMAIL_APP_PASSWORD;
+const MAIL_FROM = process.env.MAIL_FROM || GMAIL_USER;
 const APP_NAME = process.env.APP_NAME || "App";
 
-if (!API_KEY) {
-  console.error("[SendGrid] Falta SENDGRID_API_KEY en el entorno");
-} else {
-  sgMail.setApiKey(API_KEY);
+if (!GMAIL_USER) {
+  console.error("[Gmail] Falta GMAIL_USER en el entorno");
 }
 
+if (!GMAIL_APP_PASSWORD) {
+  console.error("[Gmail] Falta GMAIL_APP_PASSWORD en el entorno");
+}
+
+const transporter = nodemailer.createTransport({
+  service: "gmail",
+  auth: {
+    user: GMAIL_USER,
+    pass: GMAIL_APP_PASSWORD,
+  },
+});
+
 export async function sendOtpEmail({ to, code }) {
+  if (!GMAIL_USER || !GMAIL_APP_PASSWORD) {
+    return {
+      ok: false,
+      error: "Faltan credenciales de Gmail en el entorno",
+    };
+  }
+
   const msg = {
     to,
-    from: MAIL_FROM,
+    from: `${APP_NAME} <${MAIL_FROM}>`,
     subject: `[${APP_NAME}] Tu código de verificación`,
     text: `Tu código es ${code}. Expira en 10 minutos.`,
     html: `
@@ -26,11 +44,15 @@ export async function sendOtpEmail({ to, code }) {
   };
 
   try {
-    await sgMail.send(msg);
-    console.log(`[SendGrid] Correo enviado a ${to}`);
+    await transporter.sendMail(msg);
+    console.log(`[Gmail] Correo enviado a ${to}`);
     return { ok: true };
   } catch (err) {
-    console.error("[SendGrid] Error:", err);
-    return { ok: false, error: err.message };
+    console.error("[Gmail] Error:", err);
+
+    return {
+      ok: false,
+      error: err?.response || err?.message || "Error enviando correo con Gmail",
+    };
   }
 }
