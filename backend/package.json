@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@google-cloud/vision": "*",
+    "adm-zip": "^0.5.17",
     "axios": "^1.13.2",
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",

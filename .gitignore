@@ -12,6 +12,8 @@ build/
 
 # Env
 frontend/.env
+backend/.env
+.env
 
 # IDE
 .vscode/
