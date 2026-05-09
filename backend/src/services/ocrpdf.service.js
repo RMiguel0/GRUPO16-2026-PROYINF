@@ -8,19 +8,29 @@ import {
   downloadIlovePdfResult,
 } from './ilovePdfClient.js';
 
-function extractTextFromZip(zipBuffer) {
-  const zip = new AdmZip(zipBuffer);
-  const entries = zip.getEntries();
+function extractTextFromIlovePdfResult(resultBuffer) {
+  try {
+    const zip = new AdmZip(resultBuffer);
+    const entries = zip.getEntries();
 
-  const textEntry = entries.find((entry) =>
-    entry.entryName.toLowerCase().endsWith('.txt')
-  );
+    const textEntry = entries.find((entry) =>
+      entry.entryName.toLowerCase().endsWith('.txt')
+    );
 
-  if (!textEntry) {
-    throw new Error('El resultado de iLovePDF no contiene un archivo .txt');
+    if (textEntry) {
+      return textEntry.getData().toString('utf8');
+    }
+  } catch {
+    // Si no es ZIP, seguimos abajo y lo tratamos como texto plano.
   }
 
-  return textEntry.getData().toString('utf8');
+  const text = resultBuffer.toString('utf8').trim();
+
+  if (!text) {
+    throw new Error('El resultado de iLovePDF no contiene texto extraíble');
+  }
+
+  return text;
 }
 
 export async function extractTextFromPdf(fileBuffer, filename = 'documento.pdf') {
@@ -45,7 +55,7 @@ export async function extractTextFromPdf(fileBuffer, filename = 'documento.pdf')
 
   const resultBuffer = await downloadIlovePdfResult(token, server, task);
 
-  const extractedText = extractTextFromZip(resultBuffer);
-
+  const extractedText = extractTextFromIlovePdfResult(resultBuffer);
+  
   return extractedText;
 }

@@ -1,6 +1,7 @@
 import dotenv from 'dotenv';
 import fs from 'fs/promises';
 import path from 'path';
+import { parseGenericIdentityData } from '../services/parsers/genericIdentity.parser.js';
 
 import { extractTextFromPdf } from '../services/ocrpdf.service.js';
 
@@ -14,6 +15,13 @@ async function main() {
     console.log('🚀 Extrayendo texto desde PDF...');
 
     const text = await extractTextFromPdf(fileBuffer, 'prueba.pdf');
+
+    console.log('--- TEXTO ORIGINAL EXTRAIDO ---');
+    console.log(text.slice(0, 1000));
+    const parsedData = parseGenericIdentityData(text);
+
+    console.log('✅ Datos parseados');
+    console.log(JSON.stringify(parsedData, null, 2));
 
     console.log('✅ Texto extraído correctamente');
     console.log('-----------------------------');
