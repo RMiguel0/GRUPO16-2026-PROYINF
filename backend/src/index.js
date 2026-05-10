@@ -1,12 +1,11 @@
 // backend/src/index.js
-import express from 'express';
-import cors from 'cors';
-import crypto from 'node:crypto';
+import express from "express";
+import cors from "cors";
+import crypto from "node:crypto";
 
-import { generateOtp, saveOtp, verifyAndConsumeOtp } from './utils/otp.js';
-import { sendOtpEmail } from './utils/email.js';
-import 'dotenv/config';
-
+import { generateOtp, saveOtp, verifyAndConsumeOtp } from "./utils/otp.js";
+import { sendOtpEmail } from "./utils/email.js";
+import "dotenv/config";
 
 const app = express();
 app.use(express.json());
@@ -15,16 +14,16 @@ app.use(express.json());
 app.use(
   cors({
     origin: [
-      'http://localhost:5173',
-      'http://127.0.0.1:5173',
-      'http://host.docker.internal:5173',
+      "http://localhost:5173",
+      "http://127.0.0.1:5173",
+      "http://host.docker.internal:5173",
     ],
     credentials: true,
   }),
 );
 
 // --- Solicitud de préstamo (stub) ---
-app.post('/api/applications', (req, res) => {
+app.post("/api/applications", (req, res) => {
   const {
     identification,
     fullName,
@@ -42,7 +41,7 @@ app.post('/api/applications', (req, res) => {
   const amt = Number(amount || 0);
   const dti = (amt / income) * 100;
   const score = Math.round(650 + Math.max(-100, 50 - dti));
-  const decision = score >= 620 && dataConsent ? 'pre-approved' : 'referred';
+  const decision = score >= 620 && dataConsent ? "pre-approved" : "referred";
 
   const applicationId = crypto.randomUUID();
 
@@ -66,7 +65,7 @@ app.post('/api/applications', (req, res) => {
   });
 });
 
-app.post('/api/loans/apply', (req, res) => {
+app.post("/api/loans/apply", (req, res) => {
   const {
     identification,
     fullName,
@@ -87,7 +86,7 @@ app.post('/api/loans/apply', (req, res) => {
     termMonths == null
   ) {
     return res.status(400).json({
-      error: 'missing_required_fields',
+      error: "missing_required_fields",
     });
   }
 
@@ -111,7 +110,7 @@ app.post('/api/loans/apply', (req, res) => {
     employmentStatus,
     amount,
     termMonths,
-    status: evalResult.rejected ? 'REJECTED' : 'APPROVED',
+    status: evalResult.rejected ? "REJECTED" : "APPROVED",
     createdAt: new Date().toISOString(),
   };
 
@@ -121,13 +120,12 @@ app.post('/api/loans/apply', (req, res) => {
   });
 });
 
-
 // --- OTP: enviar (via SendGrid) ---
-app.post('/api/otp/send', async (req, res) => {
+app.post("/api/otp/send", async (req, res) => {
   try {
     const { email } = req.body || {};
-    if (!email || typeof email !== 'string') {
-      return res.status(400).json({ success: false, error: 'invalid_email' });
+    if (!email || typeof email !== "string") {
+      return res.status(400).json({ success: false, error: "invalid_email" });
     }
 
     const code = generateOtp(6);
@@ -137,26 +135,26 @@ app.post('/api/otp/send', async (req, res) => {
     // envía por correo con SendGrid
     const sent = await sendOtpEmail({ to: email, code });
     if (!sent?.ok) {
-      return res.status(500).json({ success: false, error: 'send_failed' });
+      return res.status(500).json({ success: false, error: "send_failed" });
     }
 
     // Para desarrollo puedes ver el código en la respuesta.
     const reveal =
-      process.env.SEND_OTP_IN_RESPONSE === 'true' ||
-      process.env.NODE_ENV !== 'production';
+      process.env.SEND_OTP_IN_RESPONSE === "true" ||
+      process.env.NODE_ENV !== "production";
 
     return res.json({ success: true, ...(reveal ? { code } : {}) });
   } catch (err) {
-    console.error('[/api/otp/send] error:', err);
-    return res.status(500).json({ success: false, error: 'internal_error' });
+    console.error("[/api/otp/send] error:", err);
+    return res.status(500).json({ success: false, error: "internal_error" });
   }
 });
 
 // --- OTP: verificar ---
-app.post('/api/otp/verify', (req, res) => {
+app.post("/api/otp/verify", (req, res) => {
   const { email, code } = req.body || {};
-  if (!email || typeof email !== 'string' || !code) {
-    return res.status(400).json({ success: false, error: 'missing_params' });
+  if (!email || typeof email !== "string" || !code) {
+    return res.status(400).json({ success: false, error: "missing_params" });
   }
 
   const result = verifyAndConsumeOtp(email, String(code));
@@ -170,23 +168,22 @@ app.post('/api/otp/verify', (req, res) => {
   return res.json({ success: true });
 });
 
-app.get('/api/health', (_req, res) => res.json({ ok: true }));
+app.get("/api/health", (_req, res) => res.json({ ok: true }));
 
-import 'dotenv/config';
-import ocrRoutes from './routes/ocr.routes.js';
-app.use('/api', ocrRoutes);
+import "dotenv/config";
+import ocrRoutes from "./routes/ocr.routes.js";
+app.use("/api", ocrRoutes);
 
 // --- Loan simulation ---
 // Endpoint to evaluate a loan application based solely on form inputs.
 // It computes a credit score and assigns an interest rate according to
 // predefined thresholds. If the applicant is deemed high risk the loan
 // will be rejected and no rate will be returned.
-import { evaluateApplication } from './utils/scoring.js';
-import routes from './routes/index.js';
+import { evaluateApplication } from "./utils/scoring.js";
+import routes from "./routes/index.js";
 
 // Mount modular routes for loans and other services under /api.
-app.use('/api', routes);
+app.use("/api", routes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Stub API listening on :${PORT}`));
-
