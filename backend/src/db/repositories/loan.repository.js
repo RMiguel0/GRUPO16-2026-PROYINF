@@ -1,15 +1,18 @@
 // Repositorio: agrupa consultas SQL de 'loan'.
 import { pool } from '../pool.js';
 import crypto from 'node:crypto';
+import { ensureAuthTables } from './user.repository.js';
 
 /**
  * Ensure the loan_application table exists with the required schema.
  * This helper will create the table if it doesn't exist.
  */
 async function ensureTable() {
+  await ensureAuthTables();
   await pool.query(`
     CREATE TABLE IF NOT EXISTS loan_application (
       id uuid PRIMARY KEY,
+      user_id uuid REFERENCES users(id) ON DELETE SET NULL,
       identification varchar(30) NOT NULL,
       full_name varchar(255) NOT NULL,
       email varchar(255),
@@ -28,6 +31,8 @@ async function ensureTable() {
       created_at timestamp DEFAULT NOW()
     )
   `);
+  await pool.query('ALTER TABLE loan_application ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES users(id) ON DELETE SET NULL');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_loan_application_user_id ON loan_application(user_id)');
 }
 
 /**
@@ -42,6 +47,7 @@ export async function createLoanApplication(payload) {
   await ensureTable();
   const id = crypto.randomUUID();
   const {
+    user_id,
     identification,
     full_name,
     email,
@@ -61,6 +67,7 @@ export async function createLoanApplication(payload) {
     `
       INSERT INTO loan_application (
         id,
+        user_id,
         identification,
         full_name,
         email,
@@ -77,11 +84,12 @@ export async function createLoanApplication(payload) {
         rejected,
         signed
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,false)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,false)
       RETURNING *
     `,
     [
       id,
+      user_id ?? null,
       identification,
       full_name,
       email,

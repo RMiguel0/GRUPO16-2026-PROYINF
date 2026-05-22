@@ -4,6 +4,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import EmailVerification from "../components/EmailVerification.jsx";
 import FaceMatchCheck from "../components/FaceMatchCheck.jsx";
 import { validarRUT } from "../utils/rutUtils.js";
+import { useAuth } from "../context/AuthContext.jsx";
 
 /**
  * Esta vista concentra:
@@ -18,6 +19,7 @@ import { validarRUT } from "../utils/rutUtils.js";
 export default function IdentityCheck() {
   const navigate = useNavigate();
   const { state } = useLocation() || {};
+  const { token } = useAuth();
 
   // Normalizamos la entrada y damos un fallback de almacenamiento local
   const fromStateApp = state?.application || null;
@@ -107,7 +109,10 @@ export default function IdentityCheck() {
 
       const res = await fetch('/api/loans/apply', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           identification: ident,
           fullName,

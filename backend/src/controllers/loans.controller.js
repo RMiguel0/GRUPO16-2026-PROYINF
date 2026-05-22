@@ -116,6 +116,7 @@ export async function applyLoan(req, res, next) {
 
     // Persist the application
     const record = await createLoanApplication({
+      user_id: req.user?.id ?? null,
       identification,
       full_name: fullName,
       email,

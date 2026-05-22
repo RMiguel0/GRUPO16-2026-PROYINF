@@ -62,10 +62,14 @@ export default function AuthMenu() {
 
               <button
                 type="button"
+                onClick={() => {
+                  setOpen(false);
+                  openLogin();
+                }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 border-t"
               >
                 <UserPlus className="w-4 h-4" />
-                Sign in
+                Crear cuenta
               </button>
             </>
           ) : (
