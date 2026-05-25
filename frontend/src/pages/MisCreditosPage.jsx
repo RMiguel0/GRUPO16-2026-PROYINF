@@ -1,3 +1,5 @@
+import LoanRecommendationCard from "../components/LoanRecommendationCard.jsx";
+
 function money(value) {
   return new Intl.NumberFormat("es-CL", {
     style: "currency",
@@ -34,6 +36,8 @@ const history = [
 export default function MisCreditosPage() {
   return (
     <div className="space-y-6">
+      <LoanRecommendationCard />
+
       <section className="bg-white rounded-2xl shadow-sm border border-gray-200 p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">Créditos activos</h2>
 

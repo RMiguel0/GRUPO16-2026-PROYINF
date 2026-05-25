@@ -1,0 +1,18 @@
+{
+  "monthlyIncome": 1200000,
+  "currentDebtMonthly": 180000,
+  "noOfDependents": 2,
+  "employmentStatus": "dependiente",
+  "amountMin": 500000,
+  "amountMax": 8000000,
+  "amountStep": 500000,
+  "terms": [
+    12,
+    24,
+    36,
+    48,
+    60
+  ],
+  "annualInterestRate": 0.055,
+  "maxTotalBurden": 0.4
+}

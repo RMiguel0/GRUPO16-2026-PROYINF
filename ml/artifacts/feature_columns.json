@@ -1,0 +1,11 @@
+[
+  "no_of_dependents",
+  "self_employed",
+  "income_annum",
+  "loan_amount",
+  "loan_term",
+  "loan_to_income",
+  "monthly_income",
+  "estimated_monthly_payment",
+  "payment_to_income"
+]

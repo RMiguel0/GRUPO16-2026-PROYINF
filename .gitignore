@@ -28,3 +28,7 @@ backend/keys/round-legacy-477423-p6-f62e0d36b276.json
 
 # Local project progress log
 iteraciones-proyecto.txt
+
+# Modelo de recomendacion
+codex_ml_recommender_only
+codex_ml_recommender_only.zip
