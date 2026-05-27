@@ -97,12 +97,6 @@ function Header() {
         </div>
 
         <div className="flex items-center gap-6 text-sm text-slate-700">
-          <span className="flex items-center gap-2">
-            <span className="flex h-5 w-5 items-center justify-center rounded-full border border-slate-400 text-xs">
-              ?
-            </span>
-            Ayuda
-          </span>
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
               JD
