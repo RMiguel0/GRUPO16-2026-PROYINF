@@ -27,15 +27,12 @@ export default function CreditSummaryCard({ summary }) {
       <section className="mt-7 space-y-5">
         <h3 className="font-bold text-slate-900">Detalles adicionales</h3>
         <DetailRow label="Tipo de Crédito:" value="Crédito Personal" />
-        <DetailRow label="Sistema de Amortización:" value="Francés" />
-        <DetailRow label="Seguro de Desgravamen:" value="Incluido" />
-        <DetailRow label="Comisión de Apertura:" value="$0" />
         <DetailRow label="Fecha de Simulación:" value="05/05/2026" />
         <DetailRow
           label="Estado:"
           value={
             <span className="rounded-full bg-emerald-100 px-3 py-1 text-sm font-semibold text-emerald-700">
-              Pre-aprobado
+              Pendiente
             </span>
           }
         />

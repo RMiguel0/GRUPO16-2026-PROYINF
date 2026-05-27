@@ -3,10 +3,10 @@ import DocumentReviewPanel from "../components/DocumentReviewPanel.jsx";
 
 export default function LoanApplicationPage() {
   const loanSummary = {
-    amount: "$10.000.000 CLP",
+    amount: "$21.500.000 CLP",
     term: 60,
     interest: 1.2,
-    monthlyPayment: "$340.000 CLP",
+    monthlyPayment: "$410.675 CLP",
   };
 
   const initialDocuments = [
@@ -89,20 +89,12 @@ function Header() {
   return (
     <header className="h-16 border-b border-slate-200 bg-white">
       <div className="mx-auto flex h-full max-w-[1780px] items-center justify-between px-8">
-        <div className="flex items-center gap-3">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-50 text-xl">
-            🏦
-          </div>
-
-        </div>
-
         <div className="flex items-center gap-6 text-sm text-slate-700">
           <div className="flex items-center gap-2">
             <span className="flex h-9 w-9 items-center justify-center rounded-full bg-blue-600 font-semibold text-white">
-              JD
+              D
             </span>
-            <span className="font-medium">John Doe</span>
-            <span>⌄</span>
+            <span className="font-medium">Demo</span>
           </div>
         </div>
       </div>
