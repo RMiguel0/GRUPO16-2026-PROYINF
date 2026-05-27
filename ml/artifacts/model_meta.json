@@ -1,0 +1,43 @@
+{
+  "model_name": "random_forest_recommender",
+  "model_type": "RandomForestClassifier",
+  "model_params": {
+    "n_estimators": 100,
+    "max_depth": 10,
+    "class_weight": "balanced",
+    "random_state": 25
+  },
+  "threshold": 0.55,
+  "negative_class": 0,
+  "negative_class_label": "Rejected",
+  "positive_class": 1,
+  "positive_class_label": "Approved",
+  "train_size": 0.8,
+  "train_test_random_state": 42,
+  "feature_columns": [
+    "no_of_dependents",
+    "self_employed",
+    "income_annum",
+    "loan_amount",
+    "loan_term",
+    "loan_to_income",
+    "monthly_income",
+    "estimated_monthly_payment",
+    "payment_to_income"
+  ],
+  "loan_term_unit_in_training": "years",
+  "term_months_conversion": "loan_term = termMonths / 12",
+  "derived_features": {
+    "loan_to_income": "loan_amount / income_annum",
+    "monthly_income": "income_annum / 12",
+    "estimated_monthly_payment": "loan_amount / (loan_term * 12)",
+    "payment_to_income": "estimated_monthly_payment / monthly_income"
+  },
+  "recommendation_defaults": {
+    "annual_interest_rate": 0.055,
+    "max_total_burden": 0.4,
+    "threshold": 0.55
+  },
+  "purpose": "Modelo auxiliar para recomendar monto y plazo. No aprueba créditos y no reemplaza el scoring formal de evaluación.",
+  "created_at_utc": "2026-05-24T23:52:19.063664+00:00"
+}

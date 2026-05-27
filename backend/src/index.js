@@ -5,10 +5,12 @@ import crypto from 'node:crypto';
 
 import authRoutes from './routes/auth.routes.js';
 import ocrRoutes from './routes/ocr.routes.js';
+import profileRoutes from './routes/profile.routes.js';
 import routes from './routes/index.js';
 import { bootstrapAuth } from './services/auth.service.js';
 import { generateOtp, saveOtp, verifyAndConsumeOtp } from './utils/otp.js';
 import { sendOtpEmail } from './utils/email.js';
+import errorHandler from './middlewares/error.js';
 
 const app = express();
 app.use(express.json());
@@ -27,6 +29,7 @@ app.use(
 app.get('/api/health', (_req, res) => res.json({ ok: true }));
 
 app.use('/api/auth', authRoutes);
+app.use('/api/profile', profileRoutes);
 app.use('/api', ocrRoutes);
 app.use('/api', routes);
 
@@ -113,6 +116,8 @@ app.post('/api/otp/verify', (req, res) => {
 
   return res.json({ success: true });
 });
+
+app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;
 

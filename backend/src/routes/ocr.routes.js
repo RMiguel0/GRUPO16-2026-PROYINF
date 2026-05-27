@@ -1,6 +1,8 @@
 import express from 'express';
 import multer from 'multer';
 import vision from '@google-cloud/vision';
+import { attachUser } from '../middlewares/auth.js';
+import { saveProcessedDocument } from '../db/repositories/document.repository.js';
 
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -159,7 +161,7 @@ function guessFullName(rawText = '', hintIndex = -1, linesArg) {
 
 
 // ---------------- Endpoint: /api/ocr ----------------
-router.post('/ocr', upload.single('file'), async (req, res) => {
+router.post('/ocr', attachUser, upload.single('file'), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ error: 'No se subió ningún archivo' });
@@ -181,7 +183,22 @@ router.post('/ocr', upload.single('file'), async (req, res) => {
     }
     console.log('[OCR window]', { rutIndex, linesDbg });
 
-    return res.json({ identification, fullName, rawText, linesDbg });
+    const payload = { identification, fullName, rawText, linesDbg };
+
+    if (req.user?.id) {
+      await saveProcessedDocument({
+        userId: req.user.id,
+        documentType: 'identity',
+        rawText,
+        extractedData: {
+          documentType: 'identity',
+          fields: { identification, fullName },
+        },
+        source: 'google_vision_ocr',
+      });
+    }
+
+    return res.json(payload);
   } catch (err) {
     console.error('OCR error:', err);
     return res.status(500).json({ error: 'Error procesando la imagen' });

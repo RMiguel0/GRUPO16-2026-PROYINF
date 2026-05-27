@@ -42,3 +42,16 @@ CREATE TABLE IF NOT EXISTS loan_application (
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_loan_application_user_id ON loan_application(user_id);
+
+CREATE TABLE IF NOT EXISTS processed_documents (
+  id uuid PRIMARY KEY,
+  user_id uuid REFERENCES users(id) ON DELETE CASCADE,
+  document_type varchar(80) NOT NULL,
+  raw_text text,
+  extracted_data jsonb NOT NULL DEFAULT '{}'::jsonb,
+  source varchar(80),
+  created_at timestamp NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_processed_documents_user_created
+  ON processed_documents(user_id, created_at DESC);
