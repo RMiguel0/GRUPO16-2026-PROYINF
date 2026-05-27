@@ -5,7 +5,6 @@ import { supabase } from '../lib/supabase.js';
 import LoanForm from '../components/LoanForm.jsx';
 import { FinancialOverview } from '../components/FinancialOverview.jsx';
 import { SimulationHistory } from '../components/SimulationHistory.jsx';
-import { BankComparison } from '../components/BankComparison.jsx';
 import { useSimulaciones } from '../hooks/useSimulaciones.js';
 import AuthMenu from "../components/AuthMenu.jsx";
 import LoginModal from "../components/LoginModal.jsx";
@@ -139,16 +138,6 @@ export function LoanSimulator() {
             simulations={simulaciones}
             onDelete={deleteSimulation}
             onLoad={handleLoad}
-          />
-        </div>
-
-        <div>
-          <BankComparison
-            amount={currentCalculation.amount}
-            termMonths={currentCalculation.termMonths}
-            currentRate={currentCalculation.interestRate}
-            bankRates={bankRates}
-            bciData={null}
           />
         </div>
       </div>
