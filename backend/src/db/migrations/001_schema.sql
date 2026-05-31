@@ -40,6 +40,41 @@ CREATE TABLE IF NOT EXISTS loan_application (
   created_at timestamp NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS credits (
+  id uuid PRIMARY KEY,
+  user_id uuid NOT NULL REFERENCES users(id) ON UPDATE CASCADE ON DELETE CASCADE,
+  rut varchar(30) NOT NULL REFERENCES users(rut) ON UPDATE CASCADE ON DELETE CASCADE,
+
+  status smallint NOT NULL DEFAULT 0,
+  product varchar(100) NOT NULL DEFAULT 'Credito de Consumo',
+
+  amount numeric NOT NULL,
+  term_months integer NOT NULL,
+  interest_rate_monthly numeric,
+  interest_rate_annual numeric,
+  monthly_payment numeric,
+  total_payment numeric,
+  total_interest numeric,
+
+  score integer,
+  risk varchar(30),
+  rejection_reason text,
+
+  source_application_id uuid,
+  metadata jsonb NOT NULL DEFAULT '{}'::jsonb,
+
+  created_at timestamp NOT NULL DEFAULT NOW(),
+  updated_at timestamp NOT NULL DEFAULT NOW(),
+  confirmed_at timestamp,
+  rejected_at timestamp,
+
+  CONSTRAINT credits_status_check CHECK (status IN (0, 1, 2))
+);
+
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_loan_application_user_id ON loan_application(user_id);
+CREATE INDEX IF NOT EXISTS idx_credits_user_id ON credits(user_id);
+CREATE INDEX IF NOT EXISTS idx_credits_rut ON credits(rut);
+CREATE INDEX IF NOT EXISTS idx_credits_status ON credits(status);
+CREATE INDEX IF NOT EXISTS idx_credits_created_at ON credits(created_at DESC);

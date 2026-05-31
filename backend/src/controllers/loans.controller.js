@@ -1,6 +1,7 @@
 // Controladores: reciben req/res y llaman a services.
 import { evaluateApplication } from '../utils/scoring.js';
 import { createLoanApplication } from '../db/repositories/loan.repository.js';
+import { CREDIT_STATUS, createCredit } from '../db/repositories/credits.repository.js';
 
 /**
  * Simulate a loan offer given the applicant's information. It expects a
@@ -51,6 +52,22 @@ export async function simulateLoan(req, res, next) {
   } catch (err) {
     return next(err);
   }
+}
+
+function paymentTotals({ amount, termMonths, monthlyPayment }) {
+  const payment = Number(monthlyPayment);
+  const term = Number(termMonths);
+  const principal = Number(amount);
+
+  if (!Number.isFinite(payment) || !Number.isFinite(term) || !Number.isFinite(principal)) {
+    return { totalPayment: null, totalInterest: null };
+  }
+
+  const totalPayment = Math.round(payment * term);
+  return {
+    totalPayment,
+    totalInterest: Math.max(0, totalPayment - principal),
+  };
 }
 
 /**
@@ -108,9 +125,43 @@ export async function applyLoan(req, res, next) {
     }
 
     const evalResult = evaluateApplication(amt, term, income, employmentStatus);
-    // If high risk, return only the evaluation (no DB insert)
+    const totals = paymentTotals({
+      amount: amt,
+      termMonths: term,
+      monthlyPayment: evalResult.monthlyPayment,
+    });
+
+    // If high risk, store the rejected credit attempt without creating a loan_application row.
     if (evalResult.rejected) {
-      return res.json(evalResult);
+      const credit = await createCredit({
+        userId: req.user.id,
+        rut: req.user.rut,
+        status: CREDIT_STATUS.REJECTED,
+        amount: amt,
+        termMonths: term,
+        interestRateMonthly: evalResult.interestRateMonthly,
+        interestRateAnnual: evalResult.interestRateAnnual,
+        monthlyPayment: evalResult.monthlyPayment,
+        totalPayment: totals.totalPayment,
+        totalInterest: totals.totalInterest,
+        score: evalResult.score,
+        risk: evalResult.risk,
+        rejectionReason: 'Solicitud rechazada por alto riesgo.',
+        metadata: {
+          applicant: {
+            identification,
+            fullName,
+            email,
+            phone,
+            monthlyIncome: income,
+            employmentStatus,
+          },
+          breakdown: evalResult.breakdown,
+        },
+        rejectedAt: new Date().toISOString(),
+      });
+
+      return res.json({ ...evalResult, credit });
     }
 
     // Persist the application
@@ -132,7 +183,35 @@ export async function applyLoan(req, res, next) {
       rejected: evalResult.rejected,
     });
 
-    return res.json({ ...evalResult, application: record });
+    const credit = await createCredit({
+      userId: req.user.id,
+      rut: req.user.rut,
+      status: CREDIT_STATUS.ACTIVE,
+      amount: amt,
+      termMonths: term,
+      interestRateMonthly: evalResult.interestRateMonthly,
+      interestRateAnnual: evalResult.interestRateAnnual,
+      monthlyPayment: evalResult.monthlyPayment,
+      totalPayment: totals.totalPayment,
+      totalInterest: totals.totalInterest,
+      score: evalResult.score,
+      risk: evalResult.risk,
+      sourceApplicationId: record.id,
+      metadata: {
+        applicant: {
+          identification,
+          fullName,
+          email,
+          phone,
+          monthlyIncome: income,
+          employmentStatus,
+        },
+        breakdown: evalResult.breakdown,
+      },
+      confirmedAt: new Date().toISOString(),
+    });
+
+    return res.json({ ...evalResult, application: record, credit });
   } catch (err) {
     return next(err);
   }

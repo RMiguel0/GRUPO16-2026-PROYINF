@@ -2,6 +2,7 @@ import { Router } from 'express';
 import multer from 'multer';
 import auth from '../middlewares/auth.js';
 import { saveProcessedDocument } from '../db/repositories/document.repository.js';
+import { findCreditsByUserId } from '../db/repositories/credits.repository.js';
 import {
   DOCUMENT_COLUMNS,
   findDocumentsByUserId,
@@ -24,6 +25,11 @@ const upload = multer({ storage: multer.memoryStorage() });
 const REQUIRED_DOCUMENTS = ['identity', 'afp_imponibles', 'salary', 'cmf_debt'];
 const APPLICATION_REQUIRED_DOCUMENTS = ['identity', 'cmf_debt', 'financial_profile'];
 const APPLICATION_REQUIRED_ONE_OF = [['salary', 'afp_imponibles']];
+const CREDIT_STATUS_LABELS = {
+  0: 'Procesando',
+  1: 'Vigente',
+  2: 'Rechazado',
+};
 
 function requireUserRut(req, res) {
   if (!req.user?.rut) {
@@ -86,6 +92,38 @@ function normalizeDocumentsRow(row) {
   }
 
   return documents;
+}
+
+function numberOrNull(value) {
+  if (value === null || value === undefined) return null;
+  const parsed = Number(value);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function normalizeCreditRow(row) {
+  const status = Number(row.status);
+  return {
+    id: row.id,
+    product: row.product,
+    status,
+    statusLabel: CREDIT_STATUS_LABELS[status] || 'Procesando',
+    amount: numberOrNull(row.amount),
+    termMonths: numberOrNull(row.term_months),
+    interestRateMonthly: numberOrNull(row.interest_rate_monthly),
+    interestRateAnnual: numberOrNull(row.interest_rate_annual),
+    monthlyPayment: numberOrNull(row.monthly_payment),
+    totalPayment: numberOrNull(row.total_payment),
+    totalInterest: numberOrNull(row.total_interest),
+    score: numberOrNull(row.score),
+    risk: row.risk,
+    rejectionReason: row.rejection_reason,
+    sourceApplicationId: row.source_application_id,
+    metadata: row.metadata || {},
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+    confirmedAt: row.confirmed_at,
+    rejectedAt: row.rejected_at,
+  };
 }
 
 function parseExtractedText(rawText, documentType) {
@@ -302,6 +340,17 @@ router.get('/loan-recommendation', auth(), async (req, res, next) => {
       });
     }
 
+    return next(err);
+  }
+});
+
+router.get('/credits', auth(), async (req, res, next) => {
+  try {
+    const credits = await findCreditsByUserId(req.user.id);
+    return res.json({
+      credits: credits.map(normalizeCreditRow),
+    });
+  } catch (err) {
     return next(err);
   }
 });

@@ -97,7 +97,7 @@ export async function ensureDocumentsTable() {
       pk_name text;
       pk_columns text[];
     BEGIN
-      SELECT c.conname, array_agg(a.attname ORDER BY cols.ordinality)
+      SELECT c.conname, array_agg(a.attname::text ORDER BY cols.ordinality)
       INTO pk_name, pk_columns
       FROM pg_constraint c
       JOIN unnest(c.conkey) WITH ORDINALITY AS cols(attnum, ordinality) ON true
@@ -106,7 +106,7 @@ export async function ensureDocumentsTable() {
         AND c.contype = 'p'
       GROUP BY c.conname;
 
-      IF pk_name IS NOT NULL AND pk_columns <> ARRAY['user_id'] THEN
+      IF pk_name IS NOT NULL AND pk_columns <> ARRAY['user_id']::text[] THEN
         EXECUTE format('ALTER TABLE documents DROP CONSTRAINT %I', pk_name);
       END IF;
 
@@ -118,7 +118,7 @@ export async function ensureDocumentsTable() {
         WHERE c.conrelid = 'documents'::regclass
           AND c.contype = 'p'
         GROUP BY c.conname
-        HAVING array_agg(a.attname ORDER BY cols.ordinality) = ARRAY['user_id']
+        HAVING array_agg(a.attname::text ORDER BY cols.ordinality) = ARRAY['user_id']::text[]
       ) THEN
         ALTER TABLE documents ADD CONSTRAINT documents_pkey PRIMARY KEY (user_id);
       END IF;
