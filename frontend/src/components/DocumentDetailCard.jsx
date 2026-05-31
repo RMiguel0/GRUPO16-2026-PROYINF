@@ -257,10 +257,12 @@ function ProcessingState() {
 }
 
 function StatusBadge({ status, warnings = [] }) {
-  const hasWarnings = status === "processed" && warnings.length > 0;
+  const hasWarnings = (status === "processed" || status === "warning") && warnings.length > 0;
   const styles = {
     missing: "bg-slate-100 text-slate-600",
+    uploaded: "bg-blue-100 text-blue-700",
     processed: "bg-emerald-100 text-emerald-700",
+    warning: "bg-amber-100 text-amber-700",
     pending: "bg-amber-100 text-amber-700",
     processing: "bg-blue-100 text-blue-700",
     error: "bg-red-100 text-red-700",
@@ -269,7 +271,9 @@ function StatusBadge({ status, warnings = [] }) {
 
   const label = {
     missing: "Faltante",
+    uploaded: "Cargado",
     processed: "Procesado",
+    warning: "Con advertencias",
     pending: "Pendiente",
     processing: "Procesando",
     error: "Error",

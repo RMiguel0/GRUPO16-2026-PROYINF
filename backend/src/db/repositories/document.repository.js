@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { pool } from '../pool.js';
 import { ensureAuthTables } from './user.repository.js';
+import {
+  sanitizePostgresText,
+  stringifyJsonForPostgres,
+} from '../../utils/postgresJson.js';
 
 export async function ensureProcessedDocumentsTable() {
   await ensureAuthTables();
@@ -45,8 +49,8 @@ export async function saveProcessedDocument({
       id,
       userId ?? null,
       documentType,
-      rawText,
-      JSON.stringify(extractedData || {}),
+      sanitizePostgresText(rawText),
+      stringifyJsonForPostgres(extractedData),
       source,
     ],
   );

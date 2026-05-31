@@ -9,47 +9,14 @@ import {
   updateMyDocumentFields,
   uploadMyDocument,
 } from "../utils/documentsApi.js";
+import {
+  getMissingApplicationRequirements,
+  mapDocumentsRowToPanelDocuments,
+} from "../utils/documentMappers.js";
 import { formatCurrency } from "../utils/loanCalculations.js";
 
 const PENDING_SIMULATION_KEY = "pendingLoanSimulation";
 const APPLICATION_DRAFT_KEY = "loanApplicationDraft";
-
-const DOCUMENT_DEFINITIONS = [
-  {
-    id: "identity",
-    title: "Cedula de Identidad",
-    description: "Datos de identidad, RUT y vigencia",
-    icon: "ID",
-  },
-  {
-    id: "afp_imponibles",
-    title: "Certificado AFP",
-    description: "Remuneraciones imponibles y empleador",
-    icon: "AFP",
-  },
-  {
-    id: "salary",
-    title: "Liquidacion de Sueldo",
-    description: "Sueldo liquido, descuentos y contrato",
-    icon: "DOC",
-  },
-  {
-    id: "cmf_debt",
-    title: "Informe de Deudas CMF",
-    description: "Deuda directa, indirecta y lineas disponibles",
-    icon: "CMF",
-  },
-  {
-    id: "financial_profile",
-    title: "Perfil Financiero",
-    description: "Dependientes, deuda mensual y situacion laboral",
-    icon: "FIN",
-  },
-];
-
-const REQUIRED_FOR_APPLICATION = ["identity", "cmf_debt", "financial_profile"];
-const REQUIRED_ONE_OF = [["salary", "afp_imponibles"]];
-const READY_STATUSES = new Set(["processed", "manual_review"]);
 
 function readStoredSimulation() {
   try {
@@ -77,26 +44,6 @@ function normalizeSimulation(source) {
     totalInterest: Number(source.totalInterest) || 0,
     totalAmount: Number(source.totalAmount) || 0,
     simulatedAt: source.simulatedAt || new Date().toISOString(),
-  };
-}
-
-function normalizeDocumentPayload(payload = {}, definition) {
-  const status = payload.status && payload.status !== "pending" ? payload.status : "missing";
-
-  return {
-    ...definition,
-    ...payload,
-    id: definition.id,
-    title: definition.title,
-    description: definition.description,
-    icon: definition.icon,
-    required:
-      REQUIRED_FOR_APPLICATION.includes(definition.id) ||
-      REQUIRED_ONE_OF.some((group) => group.includes(definition.id)),
-    status,
-    fields: payload.fields && typeof payload.fields === "object" ? payload.fields : {},
-    warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
-    errors: Array.isArray(payload.errors) ? payload.errors : [],
   };
 }
 
@@ -138,10 +85,6 @@ function pickText(source, keys) {
 
 function getFields(document) {
   return document?.fields && typeof document.fields === "object" ? document.fields : {};
-}
-
-function isReady(document) {
-  return READY_STATUSES.has(document?.status);
 }
 
 function resolveApplicant({ user, documentsByType }) {
@@ -208,10 +151,7 @@ export default function LoanApplicationPage() {
   }, [simulation]);
 
   const documents = useMemo(
-    () =>
-      DOCUMENT_DEFINITIONS.map((definition) =>
-        normalizeDocumentPayload(documentsByType[definition.id] || {}, definition)
-      ),
+    () => mapDocumentsRowToPanelDocuments(documentsByType),
     [documentsByType]
   );
 
@@ -233,32 +173,26 @@ export default function LoanApplicationPage() {
     };
   }, [simulation]);
 
-  const missingRequirements = useMemo(() => {
+  const missingDocumentRequirements = useMemo(
+    () => getMissingApplicationRequirements(documents),
+    [documents]
+  );
+
+  const missingApplicantRequirements = useMemo(() => {
     const missing = [];
-    const byId = Object.fromEntries(documents.map((document) => [document.id, document]));
-
-    for (const documentType of REQUIRED_FOR_APPLICATION) {
-      if (!isReady(byId[documentType])) {
-        missing.push(DOCUMENT_DEFINITIONS.find((definition) => definition.id === documentType)?.title || documentType);
-      }
-    }
-
-    for (const group of REQUIRED_ONE_OF) {
-      if (!group.some((documentType) => isReady(byId[documentType]))) {
-        missing.push("Liquidacion de Sueldo o Certificado AFP");
-      }
-    }
-
     if (!applicant.monthlyIncome || applicant.monthlyIncome <= 0) {
       missing.push("Ingreso mensual");
     }
-
     if (!applicant.employmentStatus) {
       missing.push("Situacion laboral");
     }
-
     return missing;
-  }, [documents, applicant]);
+  }, [applicant]);
+
+  const blockingRequirements = useMemo(
+    () => [...missingDocumentRequirements, ...missingApplicantRequirements],
+    [missingDocumentRequirements, missingApplicantRequirements]
+  );
 
   async function loadDocuments() {
     if (!token) return;
@@ -380,8 +314,8 @@ export default function LoanApplicationPage() {
       return;
     }
 
-    if (missingRequirements.length > 0) {
-      setError(`Completa antes de continuar: ${missingRequirements.join(", ")}.`);
+    if (blockingRequirements.length > 0) {
+      setError(`Completa antes de continuar: ${blockingRequirements.join(", ")}.`);
       return;
     }
 
@@ -469,14 +403,21 @@ export default function LoanApplicationPage() {
   }
 
   const footerHint =
-    missingRequirements.length > 0
-      ? `Pendiente: ${missingRequirements.join(", ")}.`
+    blockingRequirements.length > 0
+      ? `Pendiente: ${blockingRequirements.join(", ")}.`
       : "Documentos listos para continuar con validacion de identidad.";
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <Header onBack={() => navigate("/")} onRefresh={loadDocuments} loading={loadingDocuments} />
       <main className="mx-auto max-w-[1780px] px-8 py-7">
+        {blockingRequirements.length > 0 ? (
+          <ApplicationRequirementNotice
+            missingRequirements={blockingRequirements}
+            onManageDocuments={() => navigate("/perfil/mis-documentos")}
+          />
+        ) : null}
+
         <DocumentReviewPanel
           summary={loanSummary}
           documents={documents}
@@ -488,15 +429,44 @@ export default function LoanApplicationPage() {
           onFieldChange={handleFieldChange}
           onSaveFields={handleSaveFields}
           onBack={() => navigate("/")}
+          onManageDocuments={() => navigate("/perfil/mis-documentos")}
           onContinue={handleContinue}
-          continueDisabled={uploadingDocumentId !== null || savingDocumentId !== null || missingRequirements.length > 0}
+          continueDisabled={uploadingDocumentId !== null || savingDocumentId !== null || blockingRequirements.length > 0}
           continueLabel="Continuar a identidad"
           backLabel="Volver al simulador"
+          manageDocumentsLabel="Ir a Mis Documentos"
           footerHint={footerHint}
         />
       </main>
       <LoginModal />
     </div>
+  );
+}
+
+function ApplicationRequirementNotice({ missingRequirements, onManageDocuments }) {
+  return (
+    <section className="mb-6 rounded-xl border border-amber-200 bg-amber-50 p-5 text-amber-900">
+      <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
+        <div>
+          <h2 className="font-bold">Faltan documentos o datos para continuar</h2>
+          <p className="mt-1 text-sm">
+            Para avanzar a validacion de identidad debes completar:
+          </p>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm">
+            {missingRequirements.map((requirement) => (
+              <li key={requirement}>{requirement}</li>
+            ))}
+          </ul>
+        </div>
+        <button
+          type="button"
+          onClick={onManageDocuments}
+          className="rounded-lg border border-amber-300 bg-white px-4 py-2 text-sm font-semibold text-amber-900 shadow-sm hover:bg-amber-100"
+        >
+          Ir a Mis Documentos
+        </button>
+      </div>
+    </section>
   );
 }
 

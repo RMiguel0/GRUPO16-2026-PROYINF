@@ -1,6 +1,7 @@
 import { pool } from '../pool.js';
 import { ensureAuthTables } from './user.repository.js';
 import { normalizeRut } from '../../utils/rut.js';
+import { stringifyJsonForPostgres } from '../../utils/postgresJson.js';
 
 export const DOCUMENT_COLUMNS = {
   identity: 'identity',
@@ -82,7 +83,7 @@ export async function updateDocumentSlot({ rut, documentType, payload }) {
       WHERE rut = $1
       RETURNING *
     `,
-    [normalizeRut(rut), JSON.stringify(payload || {})],
+    [normalizeRut(rut), stringifyJsonForPostgres(payload)],
   );
 
   return rows[0] ?? null;
@@ -105,7 +106,7 @@ export async function updateDocumentFields({ rut, documentType, fields }) {
       WHERE rut = $1
       RETURNING *
     `,
-    [normalizeRut(rut), JSON.stringify(fields || {})],
+    [normalizeRut(rut), stringifyJsonForPostgres(fields)],
   );
 
   return rows[0] ?? null;

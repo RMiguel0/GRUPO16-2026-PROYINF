@@ -2,7 +2,9 @@ import React from "react";
 
 const STATUS_LABELS = {
   missing: "Faltante",
+  uploaded: "Cargado",
   processed: "Procesado",
+  warning: "Con advertencias",
   pending: "Pendiente",
   processing: "Procesando",
   error: "Error",
@@ -44,8 +46,12 @@ export default function DocumentList({ documents, selectedId, onSelect }) {
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-sm text-white">
                 OK
               </span>
-            ) : document.status === "manual_review" ? (
+            ) : document.status === "manual_review" || document.status === "warning" ? (
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-sm text-white">
+                !
+              </span>
+            ) : document.status === "error" ? (
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-red-500 text-sm text-white">
                 !
               </span>
             ) : (
@@ -62,7 +68,9 @@ function StatusBadge({ status, warnings = [] }) {
   const hasWarnings = status === "processed" && warnings.length > 0;
   const styles = {
     missing: "bg-slate-100 text-slate-600",
+    uploaded: "bg-blue-100 text-blue-700",
     processed: "bg-emerald-100 text-emerald-700",
+    warning: "bg-amber-100 text-amber-700",
     pending: "bg-amber-100 text-amber-700",
     processing: "bg-blue-100 text-blue-700",
     error: "bg-red-100 text-red-700",

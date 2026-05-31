@@ -6,83 +6,19 @@ import {
   updateMyDocumentFields,
   uploadMyDocument,
 } from "../utils/documentsApi.js";
-
-const DOCUMENT_DEFINITIONS = [
-  {
-    id: "identity",
-    title: "Cedula de Identidad",
-    description: "Datos de identidad, RUT y vigencia",
-    icon: "ID",
-  },
-  {
-    id: "afp_imponibles",
-    title: "Certificado AFP",
-    description: "Remuneraciones imponibles y empleador",
-    icon: "AFP",
-  },
-  {
-    id: "salary",
-    title: "Liquidacion de Sueldo",
-    description: "Sueldo liquido, descuentos y contrato",
-    icon: "DOC",
-  },
-  {
-    id: "cmf_debt",
-    title: "Informe de Deudas CMF",
-    description: "Deuda directa, indirecta y lineas disponibles",
-    icon: "CMF",
-  },
-  {
-    id: "seniority",
-    title: "Certificado de Antiguedad",
-    description: "Fecha de inicio laboral",
-    icon: "LAB",
-  },
-  {
-    id: "financial_profile",
-    title: "Perfil Financiero",
-    description: "Dependientes, deuda mensual y situacion laboral",
-    icon: "FIN",
-  },
-];
-
-function normalizeDocumentPayload(payload = {}, definition, requiredDocuments) {
-  const status = payload.status && payload.status !== "pending" ? payload.status : "missing";
-
-  return {
-    ...definition,
-    ...payload,
-    id: definition.id,
-    title: definition.title,
-    description: definition.description,
-    icon: definition.icon,
-    required: requiredDocuments.includes(definition.id),
-    status,
-    fields: payload.fields && typeof payload.fields === "object" ? payload.fields : {},
-    warnings: Array.isArray(payload.warnings) ? payload.warnings : [],
-    errors: Array.isArray(payload.errors) ? payload.errors : [],
-  };
-}
+import { mapDocumentsRowToPanelDocuments } from "../utils/documentMappers.js";
 
 export default function MisDocumentosPage() {
   const { token, user } = useAuth();
   const [documentsByType, setDocumentsByType] = useState({});
-  const [requiredDocuments, setRequiredDocuments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [uploadingDocumentId, setUploadingDocumentId] = useState(null);
   const [savingDocumentId, setSavingDocumentId] = useState(null);
 
   const documents = useMemo(
-    () =>
-      DOCUMENT_DEFINITIONS.map((definition) =>
-        normalizeDocumentPayload(
-          documentsByType[definition.id] || {},
-          definition,
-          requiredDocuments
-        )
-      ),
-    [documentsByType, requiredDocuments]
+    () => mapDocumentsRowToPanelDocuments(documentsByType),
+    [documentsByType]
   );
 
   async function loadDocuments() {
@@ -93,7 +29,6 @@ export default function MisDocumentosPage() {
     try {
       const data = await fetchMyDocuments(token);
       setDocumentsByType(data.documents || {});
-      setRequiredDocuments(data.requiredDocuments || []);
     } catch (err) {
       setError(err.message || "No se pudieron cargar tus documentos.");
     } finally {

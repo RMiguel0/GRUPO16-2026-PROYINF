@@ -10,11 +10,14 @@ import {
 import { getLoanRecommendationForUser } from '../services/recommendation.service.js';
 import { extractTextFromPdf } from '../services/ocrpdf.service.js';
 import { analyzeDocument } from '../services/documentParser.service.js';
+import { sanitizePostgresText } from '../utils/postgresJson.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
 const REQUIRED_DOCUMENTS = ['identity', 'afp_imponibles', 'salary', 'cmf_debt'];
+const APPLICATION_REQUIRED_DOCUMENTS = ['identity', 'cmf_debt', 'financial_profile'];
+const APPLICATION_REQUIRED_ONE_OF = [['salary', 'afp_imponibles']];
 
 function requireUserRut(req, res) {
   if (!req.user?.rut) {
@@ -102,7 +105,9 @@ async function handleDocumentUpload(req, res, next) {
   const uploadedAt = new Date().toISOString();
 
   try {
-    const rawText = await extractTextFromPdf(req.file.buffer, req.file.originalname);
+    const rawText = sanitizePostgresText(
+      await extractTextFromPdf(req.file.buffer, req.file.originalname),
+    );
     const parsed = parseExtractedText(rawText, documentType);
     const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
     const processedAt = new Date().toISOString();
@@ -170,12 +175,14 @@ async function handleDocumentFieldsUpdate(req, res, next) {
     const current = normalizeDocumentsRow(row)[documentType];
     const payload = {
       ...current,
-      status: current.status === 'missing' ? 'manual_review' : current.status,
+      status: 'processed',
       source: current.source || 'manual',
       fields: {
         ...(current.fields || {}),
         ...fields,
       },
+      warnings: [],
+      errors: [],
       correctedAt: new Date().toISOString(),
       correctionsSource: 'manual_correction',
     };
@@ -214,6 +221,8 @@ router.get('/documents', auth(), async (req, res, next) => {
       rut,
       documents: normalizeDocumentsRow(row),
       requiredDocuments: REQUIRED_DOCUMENTS,
+      applicationRequiredDocuments: APPLICATION_REQUIRED_DOCUMENTS,
+      applicationRequiredOneOf: APPLICATION_REQUIRED_ONE_OF,
     });
   } catch (err) {
     return next(err);

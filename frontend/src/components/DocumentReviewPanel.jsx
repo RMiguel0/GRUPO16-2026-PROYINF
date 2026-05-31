@@ -17,10 +17,12 @@ export default function DocumentReviewPanel({
   onSaveFields,
   onReprocess,
   onBack,
+  onManageDocuments,
   onContinue,
   continueDisabled = false,
   continueLabel = "Continuar Evaluacion",
   backLabel = "Volver al Resumen",
+  manageDocumentsLabel = "Gestionar documentos",
   footerHint = "",
 }) {
   const isProfile = mode === "profile";
@@ -41,7 +43,7 @@ export default function DocumentReviewPanel({
   );
 
   const completedCount = documents.filter((doc) =>
-    ["processed", "manual_review"].includes(doc.status)
+    ["processed", "manual_review", "warning", "uploaded"].includes(doc.status)
   ).length;
   const canReprocess = Boolean(onReprocess) || !isControlled;
 
@@ -124,6 +126,16 @@ export default function DocumentReviewPanel({
                 : "Sube los documentos solicitados. Extraeremos la informacion automaticamente para agilizar tu solicitud."}
             </p>
           </div>
+
+          {!isProfile && onManageDocuments ? (
+            <button
+              type="button"
+              onClick={onManageDocuments}
+              className="shrink-0 rounded-lg border border-blue-200 bg-blue-50 px-4 py-2 text-sm font-semibold text-blue-700 hover:bg-blue-100"
+            >
+              {manageDocumentsLabel}
+            </button>
+          ) : null}
         </div>
 
         {error ? (
@@ -187,6 +199,15 @@ export default function DocumentReviewPanel({
                 >
                   {backLabel}
                 </button>
+                {onManageDocuments ? (
+                  <button
+                    type="button"
+                    onClick={onManageDocuments}
+                    className="rounded-lg border border-blue-200 bg-blue-50 px-7 py-3 font-semibold text-blue-700 shadow-sm hover:bg-blue-100"
+                  >
+                    {manageDocumentsLabel}
+                  </button>
+                ) : null}
                 <button
                   type="button"
                   onClick={onContinue}
