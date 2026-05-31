@@ -4,7 +4,7 @@ import auth from '../middlewares/auth.js';
 import { saveProcessedDocument } from '../db/repositories/document.repository.js';
 import {
   DOCUMENT_COLUMNS,
-  findDocumentsByRut,
+  findDocumentsByUserId,
   updateDocumentSlot,
 } from '../db/repositories/documents.repository.js';
 import { getLoanRecommendationForUser } from '../services/recommendation.service.js';
@@ -35,6 +35,19 @@ function requireUserRut(req, res) {
   }
 
   return req.user.rut;
+}
+
+function requireDocumentOwner(req, res) {
+  const userId = req.user?.id;
+  if (!userId) {
+    res.status(401).json({ error: 'Debes iniciar sesion.' });
+    return null;
+  }
+
+  const rut = requireUserRut(req, res);
+  if (!rut) return null;
+
+  return { userId, rut };
 }
 
 function isAllowedDocumentType(documentType) {
@@ -124,8 +137,8 @@ function pdfFilenameForImage(filename = 'documento.jpg') {
 }
 
 async function handleDocumentUpload(req, res, next) {
-  const rut = requireUserRut(req, res);
-  if (!rut) return;
+  const owner = requireDocumentOwner(req, res);
+  if (!owner) return;
 
   const { documentType } = req.params;
   if (!isAllowedDocumentType(documentType)) {
@@ -209,7 +222,7 @@ async function handleDocumentUpload(req, res, next) {
       documentType,
     };
 
-    await updateDocumentSlot({ rut, documentType, payload });
+    await updateDocumentSlot({ userId: owner.userId, rut: owner.rut, documentType, payload });
     return res.json({ documentType, document: payload, debugExtraction });
   } catch (err) {
     const payload = {
@@ -224,7 +237,7 @@ async function handleDocumentUpload(req, res, next) {
     };
 
     try {
-      await updateDocumentSlot({ rut, documentType, payload });
+      await updateDocumentSlot({ userId: owner.userId, rut: owner.rut, documentType, payload });
     } catch (saveErr) {
       return next(saveErr);
     }
@@ -240,8 +253,8 @@ async function handleDocumentUpload(req, res, next) {
 
 async function handleDocumentFieldsUpdate(req, res, next) {
   try {
-    const rut = requireUserRut(req, res);
-    if (!rut) return;
+    const owner = requireDocumentOwner(req, res);
+    if (!owner) return;
 
     const { documentType } = req.params;
     if (!isAllowedDocumentType(documentType)) {
@@ -253,7 +266,7 @@ async function handleDocumentFieldsUpdate(req, res, next) {
       return res.status(400).json({ error: 'INVALID_FIELDS_PAYLOAD' });
     }
 
-    const row = await findDocumentsByRut(rut);
+    const row = await findDocumentsByUserId(owner.userId, owner.rut);
     const current = normalizeDocumentsRow(row)[documentType];
     const payload = {
       ...current,
@@ -269,7 +282,7 @@ async function handleDocumentFieldsUpdate(req, res, next) {
       correctionsSource: 'manual_correction',
     };
 
-    await updateDocumentSlot({ rut, documentType, payload });
+    await updateDocumentSlot({ userId: owner.userId, rut: owner.rut, documentType, payload });
     return res.json({ documentType, document: payload });
   } catch (err) {
     return next(err);
@@ -295,12 +308,13 @@ router.get('/loan-recommendation', auth(), async (req, res, next) => {
 
 router.get('/documents', auth(), async (req, res, next) => {
   try {
-    const rut = requireUserRut(req, res);
-    if (!rut) return;
+    const owner = requireDocumentOwner(req, res);
+    if (!owner) return;
 
-    const row = await findDocumentsByRut(rut);
+    const row = await findDocumentsByUserId(owner.userId, owner.rut);
     return res.json({
-      rut,
+      userId: owner.userId,
+      rut: owner.rut,
       documents: normalizeDocumentsRow(row),
       requiredDocuments: REQUIRED_DOCUMENTS,
       applicationRequiredDocuments: APPLICATION_REQUIRED_DOCUMENTS,

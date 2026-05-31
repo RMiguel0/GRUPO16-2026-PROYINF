@@ -9,7 +9,7 @@ import {
   findUserByEmail,
   findUserByRut,
 } from '../db/repositories/user.repository.js';
-import { ensureDocumentRowForRut } from '../db/repositories/documents.repository.js';
+import { ensureDocumentRowForUser } from '../db/repositories/documents.repository.js';
 import { isValidRut, normalizeRut } from '../utils/rut.js';
 
 const HASH_ALGORITHM = 'sha256';
@@ -80,7 +80,7 @@ export async function bootstrapAuth() {
   const existingDemo = await findUserByEmail(demoEmail);
   if (existingDemo) {
     if (existingDemo.rut) {
-      await ensureDocumentRowForRut(existingDemo.rut);
+      await ensureDocumentRowForUser({ userId: existingDemo.id, rut: existingDemo.rut });
     }
     return;
   }
@@ -94,7 +94,7 @@ export async function bootstrapAuth() {
     rut: demoRut,
   });
 
-  await ensureDocumentRowForRut(demoUser.rut);
+  await ensureDocumentRowForUser({ userId: demoUser.id, rut: demoUser.rut });
 }
 
 export async function registerUser({ fullName, email, password, rut, phone }) {
@@ -139,7 +139,7 @@ export async function registerUser({ fullName, email, password, rut, phone }) {
     phone,
   });
 
-  await ensureDocumentRowForRut(user.rut);
+  await ensureDocumentRowForUser({ userId: user.id, rut: user.rut });
 
   const session = await createAuthSession(user);
   return { user: normalizeUser(user), ...session };
