@@ -19,6 +19,11 @@ function normalizeStoredDocument(stored = {}, definition) {
       ? [stored.error]
       : [];
   const status = normalizeStatus(stored.status, warnings);
+  const storedFields = stored.fields && typeof stored.fields === "object" ? stored.fields : {};
+  const expectedFields = Array.isArray(definition.expectedFields) ? definition.expectedFields : [];
+  const emptyExpectedFields = Object.fromEntries(
+    expectedFields.map((fieldName) => [fieldName, ""])
+  );
 
   return {
     ...definition,
@@ -31,7 +36,10 @@ function normalizeStoredDocument(stored = {}, definition) {
       Boolean(definition.requiredForApplication) ||
       Boolean(definition.incomeDocument),
     status,
-    fields: stored.fields && typeof stored.fields === "object" ? stored.fields : {},
+    fields: {
+      ...emptyExpectedFields,
+      ...storedFields,
+    },
     warnings,
     errors,
     source: stored.source || null,

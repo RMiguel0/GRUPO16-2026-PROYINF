@@ -32,6 +32,9 @@ const FIELD_LABELS = {
   currentDebtMonthly: "Deuda mensual actual",
   noOfDependents: "Dependientes",
   employmentStatus: "Situacion laboral",
+  loanPurpose: "Destino del credito",
+  additionalIncome: "Ingresos adicionales",
+  seniorityMonths: "Antiguedad en meses",
 };
 
 export default function DocumentDetailCard({

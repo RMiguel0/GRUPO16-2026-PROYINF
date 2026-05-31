@@ -8,9 +8,15 @@ import {
   updateDocumentSlot,
 } from '../db/repositories/documents.repository.js';
 import { getLoanRecommendationForUser } from '../services/recommendation.service.js';
-import { extractTextFromPdf } from '../services/ocrpdf.service.js';
+import {
+  convertImageToPdf,
+  extractTextFromPdf,
+} from '../services/ocrpdf.service.js';
 import { analyzeDocument } from '../services/documentParser.service.js';
-import { sanitizePostgresText } from '../utils/postgresJson.js';
+import {
+  hasMeaningfulExtractedText,
+  sanitizeExtractedText,
+} from '../utils/postgresJson.js';
 
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
@@ -82,6 +88,41 @@ function parseExtractedText(rawText, documentType) {
   return analyzeDocument(rawText, documentType);
 }
 
+function buildExtractionDebug(originalText, cleanedText, meta = {}) {
+  const original = typeof originalText === 'string' ? originalText : '';
+  const cleaned = typeof cleanedText === 'string' ? cleanedText : '';
+  const originalPreview = original.slice(0, 3000);
+  const cleanedPreview = cleaned.slice(0, 3000);
+
+  return {
+    originalLength: original.length,
+    cleanedLength: cleaned.length,
+    originalPreview,
+    cleanedPreview,
+    originalFirstCharCodes: Array.from(originalPreview.slice(0, 80)).map((char) =>
+      char.codePointAt(0)
+    ),
+    cleanedFirstCharCodes: Array.from(cleanedPreview.slice(0, 80)).map((char) =>
+      char.codePointAt(0)
+    ),
+    meaningful: hasMeaningfulExtractedText(cleaned),
+    ...meta,
+  };
+}
+
+function isSupportedIdentityImage(mimetype) {
+  return ['image/jpeg', 'image/jpg'].includes(String(mimetype || '').toLowerCase());
+}
+
+function isSupportedUpload(documentType, mimetype) {
+  if (mimetype === 'application/pdf') return true;
+  return documentType === 'identity' && isSupportedIdentityImage(mimetype);
+}
+
+function pdfFilenameForImage(filename = 'documento.jpg') {
+  return filename.replace(/\.(jpe?g)$/i, '.pdf') || 'documento.pdf';
+}
+
 async function handleDocumentUpload(req, res, next) {
   const rut = requireUserRut(req, res);
   if (!rut) return;
@@ -95,26 +136,67 @@ async function handleDocumentUpload(req, res, next) {
     return res.status(400).json({ error: 'MISSING_FILE' });
   }
 
-  if (req.file.mimetype !== 'application/pdf') {
+  if (!isSupportedUpload(documentType, req.file.mimetype)) {
     return res.status(415).json({
       error: 'UNSUPPORTED_FILE_TYPE',
-      message: 'Por ahora la carga documental del perfil procesa archivos PDF.',
+      message: documentType === 'identity'
+        ? 'La cedula de identidad puede cargarse como PDF o JPG.'
+        : 'Por ahora este tipo de documento solo acepta PDF.',
     });
   }
 
   const uploadedAt = new Date().toISOString();
 
   try {
-    const rawText = sanitizePostgresText(
-      await extractTextFromPdf(req.file.buffer, req.file.originalname),
-    );
-    const parsed = parseExtractedText(rawText, documentType);
+    const isIdentityImage = documentType === 'identity' && isSupportedIdentityImage(req.file.mimetype);
+    const pdfBuffer = isIdentityImage
+      ? await convertImageToPdf(req.file.buffer, req.file.originalname, req.file.mimetype)
+      : req.file.buffer;
+    const pdfFilename = isIdentityImage
+      ? pdfFilenameForImage(req.file.originalname)
+      : req.file.originalname;
+    const iloveRawText = await extractTextFromPdf(pdfBuffer, pdfFilename);
+    let rawText = sanitizeExtractedText(iloveRawText);
+    let originalRawText = iloveRawText;
+    let extractionSource = isIdentityImage ? 'ilovepdf_imagepdf_extract' : 'ilovepdf';
+
+    const debugExtraction = buildExtractionDebug(originalRawText, rawText, {
+      sourceUsed: extractionSource,
+      inputMimeType: req.file.mimetype,
+      convertedToPdf: isIdentityImage,
+      convertedPdfFilename: isIdentityImage ? pdfFilename : null,
+      imageToPdfOptions: isIdentityImage
+        ? {
+            orientation: 'portrait',
+            margin: 0,
+            pagesize: 'fit',
+            merge_after: true,
+          }
+        : null,
+      ilovePdfPreview: iloveRawText.slice(0, 3000),
+      ilovePdfFirstCharCodes: Array.from(iloveRawText.slice(0, 80)).map((char) =>
+        char.codePointAt(0)
+      ),
+    });
+
+    const parsed = hasMeaningfulExtractedText(rawText)
+      ? parseExtractedText(rawText, documentType)
+      : {
+          documentType,
+          fields: {},
+          warnings: [
+            isIdentityImage
+              ? 'La imagen JPG fue convertida a PDF con iLovePDF, pero no se pudo extraer texto legible desde el PDF resultante.'
+              : 'No se pudo extraer texto legible del PDF con iLovePDF extract. El archivo parece ser una imagen escaneada dentro de un PDF, sin capa de texto seleccionable.',
+          ],
+          confidence: 'low',
+        };
     const warnings = Array.isArray(parsed.warnings) ? parsed.warnings : [];
     const processedAt = new Date().toISOString();
 
     const payload = {
       status: warnings.length > 0 ? 'manual_review' : 'processed',
-      source: 'ilovepdf',
+      source: extractionSource,
       uploadedAt,
       processedAt,
       fileName: req.file.originalname,
@@ -128,7 +210,7 @@ async function handleDocumentUpload(req, res, next) {
     };
 
     await updateDocumentSlot({ rut, documentType, payload });
-    return res.json({ documentType, document: payload });
+    return res.json({ documentType, document: payload, debugExtraction });
   } catch (err) {
     const payload = {
       ...emptyDocumentPayload(documentType),

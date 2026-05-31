@@ -5,6 +5,7 @@ export const DOCUMENT_DEFINITIONS = [
     description: "Datos de identidad, RUT y vigencia",
     icon: "ID",
     requiredForApplication: true,
+    expectedFields: ["rut", "fullName", "birthDate", "docNumber", "expiryDate"],
   },
   {
     id: "afp_imponibles",
@@ -13,6 +14,13 @@ export const DOCUMENT_DEFINITIONS = [
     icon: "AFP",
     requiredForApplication: false,
     incomeDocument: true,
+    expectedFields: [
+      "employerRut",
+      "employerName",
+      "recentTaxableIncome",
+      "averageTaxableIncome",
+      "periodRange",
+    ],
   },
   {
     id: "salary",
@@ -21,6 +29,13 @@ export const DOCUMENT_DEFINITIONS = [
     icon: "DOC",
     requiredForApplication: false,
     incomeDocument: true,
+    expectedFields: [
+      "baseSalary",
+      "netSalary",
+      "bonuses",
+      "payrollDeductions",
+      "contractType",
+    ],
   },
   {
     id: "cmf_debt",
@@ -28,6 +43,14 @@ export const DOCUMENT_DEFINITIONS = [
     description: "Deuda directa, indirecta y lineas disponibles",
     icon: "CMF",
     requiredForApplication: true,
+    expectedFields: [
+      "directDebt",
+      "indirectDebt",
+      "availableCreditLines",
+      "institutionsCount",
+      "paymentStatus",
+      "currentDebtMonthly",
+    ],
   },
   {
     id: "seniority",
@@ -35,6 +58,12 @@ export const DOCUMENT_DEFINITIONS = [
     description: "Antiguedad y situacion laboral",
     icon: "LAB",
     requiredForApplication: false,
+    expectedFields: [
+      "employerName",
+      "startDate",
+      "seniorityMonths",
+      "contractType",
+    ],
   },
   {
     id: "financial_profile",
@@ -43,6 +72,14 @@ export const DOCUMENT_DEFINITIONS = [
     icon: "FIN",
     requiredForApplication: true,
     manual: true,
+    expectedFields: [
+      "monthlyIncome",
+      "employmentStatus",
+      "currentDebtMonthly",
+      "noOfDependents",
+      "loanPurpose",
+      "additionalIncome",
+    ],
   },
 ];
 

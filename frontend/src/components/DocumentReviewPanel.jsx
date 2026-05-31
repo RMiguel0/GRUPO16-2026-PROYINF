@@ -226,8 +226,13 @@ export default function DocumentReviewPanel({
 }
 
 function UploadDropzone({ selectedDocument, onUploadDocument, disabled }) {
+  const acceptsIdentityImage = selectedDocument?.id === "identity";
+  const accept = acceptsIdentityImage
+    ? "application/pdf,image/jpeg,.jpg,.jpeg"
+    : "application/pdf";
+  const fileKindLabel = acceptsIdentityImage ? "PDF o JPG" : "PDF";
   const label = selectedDocument
-    ? `Selecciona un PDF para ${selectedDocument.title}`
+    ? `Selecciona un ${fileKindLabel} para ${selectedDocument.title}`
     : "Selecciona un documento";
 
   return (
@@ -238,7 +243,7 @@ function UploadDropzone({ selectedDocument, onUploadDocument, disabled }) {
     >
       <input
         type="file"
-        accept="application/pdf"
+        accept={accept}
         hidden
         disabled={disabled}
         onChange={(event) => {
@@ -249,10 +254,14 @@ function UploadDropzone({ selectedDocument, onUploadDocument, disabled }) {
           event.target.value = "";
         }}
       />
-      <div className="mb-4 text-sm font-bold text-slate-400">PDF</div>
+      <div className="mb-4 text-sm font-bold text-slate-400">{fileKindLabel}</div>
       <p className="font-semibold text-slate-800">{label}</p>
-      <p className="mt-1 text-sm text-slate-500">El backend procesara el archivo con iLovePDF</p>
-      <p className="mt-4 text-sm text-slate-500">PDF. Max. 10MB</p>
+      <p className="mt-1 text-sm text-slate-500">
+        {acceptsIdentityImage
+          ? "Si subes JPG, el backend lo convertira a PDF con iLovePDF antes de extraer texto"
+          : "El backend procesara el archivo con iLovePDF"}
+      </p>
+      <p className="mt-4 text-sm text-slate-500">{fileKindLabel}. Max. 10MB</p>
     </label>
   );
 }

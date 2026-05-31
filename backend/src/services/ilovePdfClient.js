@@ -65,13 +65,20 @@ export async function startIlovePdfTask(token, tool) {
   }; 
 }
 
-export async function uploadFileToIlovePdf(token, server, task, fileBuffer, filename) {
+export async function uploadFileToIlovePdf(
+  token,
+  server,
+  task,
+  fileBuffer,
+  filename,
+  mimeType = 'application/pdf',
+) {
   const formData = new FormData();
 
   formData.append('task', task);
   formData.append(
     'file',
-    new Blob([fileBuffer], { type: 'application/pdf' }),
+    new Blob([fileBuffer], { type: mimeType }),
     filename
   );
 
@@ -96,7 +103,7 @@ export async function uploadFileToIlovePdf(token, server, task, fileBuffer, file
   return data.server_filename;
 }
 
-export async function processIlovePdfTask(token, server, task, tool, files) {
+export async function processIlovePdfTask(token, server, task, tool, files, options = {}) {
   const response = await fetch(`https://${server}/v1/process`, {
     method: 'POST',
     headers: {
@@ -107,6 +114,7 @@ export async function processIlovePdfTask(token, server, task, tool, files) {
       task,
       tool,
       files,
+      ...options,
     }),
   });
 
