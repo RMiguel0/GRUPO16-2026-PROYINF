@@ -1,17 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { useAuth } from "../context/AuthContext.jsx";
+import { normalizarRUT, validarRUT } from "../utils/rutUtils.js";
 
 export default function LoginModal() {
-  const { isLoginOpen, closeLogin, login, register } = useAuth();
+  const { isLoginOpen, authMode, closeLogin, login, register } = useAuth();
   const [mode, setMode] = useState("login");
   const [form, setForm] = useState({
     fullName: "",
     email: "",
     password: "",
+    rut: "",
   });
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    if (isLoginOpen) {
+      setMode(authMode);
+      setError("");
+    }
+  }, [isLoginOpen, authMode]);
 
   if (!isLoginOpen) return null;
 
@@ -22,7 +31,14 @@ export default function LoginModal() {
 
     try {
       if (mode === "register") {
-        await register(form);
+        const normalizedRut = normalizarRUT(form.rut);
+        if (!validarRUT(normalizedRut)) {
+          setError("RUT invalido. Usa el formato 12345678-9.");
+          setLoading(false);
+          return;
+        }
+
+        await register({ ...form, rut: normalizedRut });
       } else {
         await login(form);
       }
@@ -60,20 +76,42 @@ export default function LoginModal() {
 
         <form onSubmit={handleSubmit} className="px-6 py-5 space-y-4">
           {mode === "register" ? (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Nombre completo
-              </label>
-              <input
-                type="text"
-                value={form.fullName}
-                onChange={(e) =>
-                  setForm((prev) => ({ ...prev, fullName: e.target.value }))
-                }
-                className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="Juan Perez"
-              />
-            </div>
+            <>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Nombre completo
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.fullName}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, fullName: e.target.value }))
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="Juan Perez"
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  RUT
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={form.rut}
+                  onChange={(e) =>
+                    setForm((prev) => ({ ...prev, rut: e.target.value }))
+                  }
+                  onBlur={() =>
+                    setForm((prev) => ({ ...prev, rut: normalizarRUT(prev.rut) }))
+                  }
+                  className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  placeholder="12345678-9"
+                />
+              </div>
+            </>
           ) : null}
 
           <div>
@@ -82,6 +120,7 @@ export default function LoginModal() {
             </label>
             <input
               type="email"
+              required
               value={form.email}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, email: e.target.value }))
@@ -97,6 +136,7 @@ export default function LoginModal() {
             </label>
             <input
               type="password"
+              required
               value={form.password}
               onChange={(e) =>
                 setForm((prev) => ({ ...prev, password: e.target.value }))

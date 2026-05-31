@@ -7,7 +7,10 @@ import {
   ensureAuthTables,
   findSessionByTokenHash,
   findUserByEmail,
+  findUserByRut,
 } from '../db/repositories/user.repository.js';
+import { ensureDocumentRowForRut } from '../db/repositories/documents.repository.js';
+import { isValidRut, normalizeRut } from '../utils/rut.js';
 
 const HASH_ALGORITHM = 'sha256';
 const HASH_ITERATIONS = 310000;
@@ -75,19 +78,35 @@ export async function bootstrapAuth() {
 
   const demoEmail = process.env.DEMO_USER_EMAIL || 'demo@banco.cl';
   const existingDemo = await findUserByEmail(demoEmail);
-  if (existingDemo) return;
+  if (existingDemo) {
+    if (existingDemo.rut) {
+      await ensureDocumentRowForRut(existingDemo.rut);
+    }
+    return;
+  }
 
-  await createUser({
+  const demoRut = normalizeRut(process.env.DEMO_USER_RUT || '11111111-1');
+
+  const demoUser = await createUser({
     fullName: process.env.DEMO_USER_NAME || 'Usuario Demo',
     email: demoEmail,
     passwordHash: hashPassword(process.env.DEMO_USER_PASSWORD || 'Demo1234'),
-    rut: '12.345.678-9',
+    rut: demoRut,
   });
+
+  await ensureDocumentRowForRut(demoUser.rut);
 }
 
 export async function registerUser({ fullName, email, password, rut, phone }) {
-  if (!fullName || !email || !password) {
-    const error = new Error('Nombre, correo y contrasena son obligatorios.');
+  if (!fullName || !email || !password || !rut) {
+    const error = new Error('Nombre, correo, contrasena y RUT son obligatorios.');
+    error.status = 400;
+    throw error;
+  }
+
+  const normalizedRut = normalizeRut(rut);
+  if (!isValidRut(normalizedRut)) {
+    const error = new Error('RUT invalido.');
     error.status = 400;
     throw error;
   }
@@ -105,13 +124,22 @@ export async function registerUser({ fullName, email, password, rut, phone }) {
     throw error;
   }
 
+  const existingRut = await findUserByRut(normalizedRut);
+  if (existingRut) {
+    const error = new Error('Ya existe una cuenta asociada a ese RUT.');
+    error.status = 409;
+    throw error;
+  }
+
   const user = await createUser({
     fullName,
     email,
     passwordHash: hashPassword(password),
-    rut,
+    rut: normalizedRut,
     phone,
   });
+
+  await ensureDocumentRowForRut(user.rut);
 
   const session = await createAuthSession(user);
   return { user: normalizeUser(user), ...session };

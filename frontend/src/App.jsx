@@ -6,6 +6,7 @@ import IdentityCheck from "./pages/IdentityCheck.jsx";
 import ProtectedRoute from "./components/ProtectedRoute.jsx";
 import ProfileLayout from "./pages/ProfileLayout.jsx";
 import MisCreditosPage from "./pages/MisCreditosPage.jsx";
+import MisDocumentosPage from "./pages/MisDocumentosPage.jsx";
 
 function App() {
   return (
@@ -25,6 +26,7 @@ function App() {
         >
           <Route index element={<Navigate to="mis-creditos" replace />} />
           <Route path="mis-creditos" element={<MisCreditosPage />} />
+          <Route path="mis-documentos" element={<MisDocumentosPage />} />
         </Route>
 
         <Route path="*" element={<Navigate to="/" replace />} />

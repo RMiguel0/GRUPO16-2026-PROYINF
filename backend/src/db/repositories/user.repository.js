@@ -1,5 +1,6 @@
 import crypto from 'node:crypto';
 import { pool } from '../pool.js';
+import { normalizeRut } from '../../utils/rut.js';
 
 export async function ensureAuthTables() {
   await pool.query(`
@@ -8,12 +9,44 @@ export async function ensureAuthTables() {
       full_name varchar(255) NOT NULL,
       email varchar(255) NOT NULL UNIQUE,
       password_hash text NOT NULL,
-      rut varchar(30),
+      rut varchar(30) NOT NULL,
       phone varchar(50),
       role varchar(30) NOT NULL DEFAULT 'customer',
       created_at timestamp NOT NULL DEFAULT NOW(),
       updated_at timestamp NOT NULL DEFAULT NOW()
     )
+  `);
+
+  await pool.query('ALTER TABLE users ADD COLUMN IF NOT EXISTS rut varchar(30)');
+  await pool.query(`
+    UPDATE users
+    SET rut = regexp_replace(
+      upper(regexp_replace(rut, '[.\\s-]', '', 'g')),
+      '^([0-9]{7,8})([0-9K])$',
+      '\\1-\\2'
+    )
+    WHERE rut IS NOT NULL
+  `);
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM users WHERE rut IS NULL OR trim(rut) = '') THEN
+        RAISE EXCEPTION 'Existen usuarios sin RUT. Completa users.rut antes de aplicar NOT NULL.';
+      END IF;
+    END $$;
+  `);
+  await pool.query('ALTER TABLE users ALTER COLUMN rut SET NOT NULL');
+  await pool.query(`
+    DO $$
+    BEGIN
+      IF NOT EXISTS (
+        SELECT 1
+        FROM pg_constraint
+        WHERE conname = 'users_rut_unique'
+      ) THEN
+        ALTER TABLE users ADD CONSTRAINT users_rut_unique UNIQUE (rut);
+      END IF;
+    END $$;
   `);
 
   await pool.query(`
@@ -34,17 +67,34 @@ export async function createUser({ fullName, email, passwordHash, rut = null, ph
   await ensureAuthTables();
   const id = crypto.randomUUID();
   const normalizedEmail = email.trim().toLowerCase();
+  const normalizedRut = normalizeRut(rut);
 
-  const { rows } = await pool.query(
-    `
-      INSERT INTO users (id, full_name, email, password_hash, rut, phone, role)
-      VALUES ($1, $2, $3, $4, $5, $6, $7)
-      RETURNING id, full_name, email, rut, phone, role, created_at
-    `,
-    [id, fullName, normalizedEmail, passwordHash, rut, phone, role],
-  );
+  try {
+    const { rows } = await pool.query(
+      `
+        INSERT INTO users (id, full_name, email, password_hash, rut, phone, role)
+        VALUES ($1, $2, $3, $4, $5, $6, $7)
+        RETURNING id, full_name, email, rut, phone, role, created_at
+      `,
+      [id, fullName, normalizedEmail, passwordHash, normalizedRut, phone, role],
+    );
 
-  return rows[0];
+    return rows[0];
+  } catch (err) {
+    if (err.code === '23505' && String(err.constraint || '').includes('rut')) {
+      const error = new Error('Ya existe una cuenta asociada a ese RUT.');
+      error.status = 409;
+      throw error;
+    }
+
+    if (err.code === '23505') {
+      const error = new Error('Ya existe una cuenta con ese correo.');
+      error.status = 409;
+      throw error;
+    }
+
+    throw err;
+  }
 }
 
 export async function findUserByEmail(email) {
@@ -61,6 +111,15 @@ export async function findUserById(id) {
   const { rows } = await pool.query(
     'SELECT id, full_name, email, rut, phone, role, created_at FROM users WHERE id = $1',
     [id],
+  );
+  return rows[0] ?? null;
+}
+
+export async function findUserByRut(rut) {
+  await ensureAuthTables();
+  const { rows } = await pool.query(
+    'SELECT * FROM users WHERE rut = $1',
+    [normalizeRut(rut)],
   );
   return rows[0] ?? null;
 }

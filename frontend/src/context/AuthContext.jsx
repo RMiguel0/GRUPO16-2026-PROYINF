@@ -38,6 +38,7 @@ export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [initializing, setInitializing] = useState(true);
   const [isLoginOpen, setIsLoginOpen] = useState(false);
+  const [authMode, setAuthMode] = useState("login");
 
   useEffect(() => {
     async function restoreSession() {
@@ -87,10 +88,10 @@ export function AuthProvider({ children }) {
     return saveSession(data);
   }
 
-  async function register({ fullName, email, password }) {
+  async function register({ fullName, email, password, rut }) {
     const data = await requestAuth("/api/auth/register", {
       method: "POST",
-      body: JSON.stringify({ fullName, email, password }),
+      body: JSON.stringify({ fullName, email, password, rut }),
     });
 
     return saveSession(data);
@@ -113,7 +114,8 @@ export function AuthProvider({ children }) {
     }
   }
 
-  function openLogin() {
+  function openLogin(mode = "login") {
+    setAuthMode(mode === "register" ? "register" : "login");
     setIsLoginOpen(true);
   }
 
@@ -128,13 +130,14 @@ export function AuthProvider({ children }) {
       initializing,
       isAuthenticated: Boolean(session?.user),
       isLoginOpen,
+      authMode,
       login,
       register,
       logout,
       openLogin,
       closeLogin,
     }),
-    [session, initializing, isLoginOpen]
+    [session, initializing, isLoginOpen, authMode]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -10,7 +10,17 @@
  * @returns {string} El RUT normalizado, con formato 12345678-9 o K.
  */
 export function normalizarRUT(rut) {
-  return (rut || "").trim().replace(/[.\s]/g, "").toUpperCase();
+  const limpio = (rut || "").trim().replace(/[.\s-]/g, "").toUpperCase();
+  if (limpio.length < 2) return limpio;
+
+  const cuerpo = limpio.slice(0, -1);
+  const dv = limpio.slice(-1);
+
+  if (!/^[0-9]{7,8}$/.test(cuerpo) || !/^[0-9K]$/.test(dv)) {
+    return limpio;
+  }
+
+  return `${cuerpo}-${dv}`;
 }
 
 /**

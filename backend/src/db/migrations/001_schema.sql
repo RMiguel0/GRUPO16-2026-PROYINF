@@ -3,11 +3,12 @@ CREATE TABLE IF NOT EXISTS users (
   full_name varchar(255) NOT NULL,
   email varchar(255) NOT NULL UNIQUE,
   password_hash text NOT NULL,
-  rut varchar(30),
+  rut varchar(30) NOT NULL,
   phone varchar(50),
   role varchar(30) NOT NULL DEFAULT 'customer',
   created_at timestamp NOT NULL DEFAULT NOW(),
-  updated_at timestamp NOT NULL DEFAULT NOW()
+  updated_at timestamp NOT NULL DEFAULT NOW(),
+  CONSTRAINT users_rut_unique UNIQUE (rut)
 );
 
 CREATE TABLE IF NOT EXISTS auth_sessions (

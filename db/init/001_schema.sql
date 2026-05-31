@@ -3,11 +3,12 @@ CREATE TABLE IF NOT EXISTS users (
   full_name varchar(255) NOT NULL,
   email varchar(255) NOT NULL UNIQUE,
   password_hash text NOT NULL,
-  rut varchar(30),
+  rut varchar(30) NOT NULL,
   phone varchar(50),
   role varchar(30) NOT NULL DEFAULT 'customer',
   created_at timestamp NOT NULL DEFAULT NOW(),
-  updated_at timestamp NOT NULL DEFAULT NOW()
+  updated_at timestamp NOT NULL DEFAULT NOW(),
+  CONSTRAINT users_rut_unique UNIQUE (rut)
 );
 
 CREATE TABLE IF NOT EXISTS auth_sessions (
@@ -39,9 +40,27 @@ CREATE TABLE IF NOT EXISTS loan_application (
   created_at timestamp NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS documents (
+  rut varchar(30) PRIMARY KEY REFERENCES users(rut) ON UPDATE CASCADE ON DELETE CASCADE,
+
+  identity jsonb NOT NULL DEFAULT '{}'::jsonb,
+  afp_imponibles jsonb NOT NULL DEFAULT '{}'::jsonb,
+  salary jsonb NOT NULL DEFAULT '{}'::jsonb,
+  cmf_debt jsonb NOT NULL DEFAULT '{}'::jsonb,
+  seniority jsonb NOT NULL DEFAULT '{}'::jsonb,
+  financial_profile jsonb NOT NULL DEFAULT '{}'::jsonb,
+
+  created_at timestamp NOT NULL DEFAULT NOW(),
+  updated_at timestamp NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_user_id ON auth_sessions(user_id);
 CREATE INDEX IF NOT EXISTS idx_auth_sessions_expires_at ON auth_sessions(expires_at);
 CREATE INDEX IF NOT EXISTS idx_loan_application_user_id ON loan_application(user_id);
+CREATE INDEX IF NOT EXISTS idx_documents_identity_gin ON documents USING gin (identity);
+CREATE INDEX IF NOT EXISTS idx_documents_afp_gin ON documents USING gin (afp_imponibles);
+CREATE INDEX IF NOT EXISTS idx_documents_salary_gin ON documents USING gin (salary);
+CREATE INDEX IF NOT EXISTS idx_documents_cmf_gin ON documents USING gin (cmf_debt);
 
 CREATE TABLE IF NOT EXISTS processed_documents (
   id uuid PRIMARY KEY,

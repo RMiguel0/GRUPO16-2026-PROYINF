@@ -52,7 +52,7 @@ export default function AuthMenu() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  openLogin();
+                  openLogin("login");
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50"
               >
@@ -64,7 +64,7 @@ export default function AuthMenu() {
                 type="button"
                 onClick={() => {
                   setOpen(false);
-                  openLogin();
+                  openLogin("register");
                 }}
                 className="w-full flex items-center gap-3 px-4 py-3 text-left text-sm text-gray-700 hover:bg-gray-50 border-t"
               >

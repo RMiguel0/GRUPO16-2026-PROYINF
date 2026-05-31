@@ -1,10 +1,12 @@
 import React from "react";
 
 const STATUS_LABELS = {
+  missing: "Faltante",
   processed: "Procesado",
   pending: "Pendiente",
   processing: "Procesando",
   error: "Error",
+  manual_review: "Revisar",
 };
 
 export default function DocumentList({ documents, selectedId, onSelect }) {
@@ -31,7 +33,7 @@ export default function DocumentList({ documents, selectedId, onSelect }) {
                 <h3 className="truncate text-base font-bold text-slate-900">
                   {document.title}
                 </h3>
-                <StatusBadge status={document.status} />
+                <StatusBadge status={document.status} warnings={document.warnings} />
               </div>
               <p className="mt-2 text-sm text-slate-600">
                 {document.description}
@@ -40,7 +42,11 @@ export default function DocumentList({ documents, selectedId, onSelect }) {
 
             {document.status === "processed" ? (
               <span className="flex h-6 w-6 items-center justify-center rounded-full bg-emerald-600 text-sm text-white">
-                ✓
+                OK
+              </span>
+            ) : document.status === "manual_review" ? (
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-amber-500 text-sm text-white">
+                !
               </span>
             ) : (
               <span className="h-6 w-6 rounded-full border-2 border-dashed border-slate-300" />
@@ -52,21 +58,24 @@ export default function DocumentList({ documents, selectedId, onSelect }) {
   );
 }
 
-function StatusBadge({ status }) {
+function StatusBadge({ status, warnings = [] }) {
+  const hasWarnings = status === "processed" && warnings.length > 0;
   const styles = {
+    missing: "bg-slate-100 text-slate-600",
     processed: "bg-emerald-100 text-emerald-700",
     pending: "bg-amber-100 text-amber-700",
     processing: "bg-blue-100 text-blue-700",
     error: "bg-red-100 text-red-700",
+    manual_review: "bg-amber-100 text-amber-700",
   };
 
   return (
     <span
       className={`rounded-full px-3 py-1 text-xs font-bold ${
-        styles[status] || "bg-slate-100 text-slate-600"
+        hasWarnings ? "bg-amber-100 text-amber-700" : styles[status] || "bg-slate-100 text-slate-600"
       }`}
     >
-      {STATUS_LABELS[status] || status}
+      {hasWarnings ? "Con advertencias" : STATUS_LABELS[status] || status}
     </span>
   );
 }
