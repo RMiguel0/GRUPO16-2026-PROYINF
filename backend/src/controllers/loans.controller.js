@@ -1,7 +1,6 @@
 // Controladores: reciben req/res y llaman a services.
 import { evaluateApplication } from '../utils/scoring.js';
 import { createLoanApplication } from '../db/repositories/loan.repository.js';
-import { callPublicSimulation } from '../services/bci.service.js';
 
 /**
  * Simulate a loan offer given the applicant's information. It expects a
@@ -139,23 +138,3 @@ export async function applyLoan(req, res, next) {
   }
 }
 
-export async function testBciSimulation(req, res, next) {
-  try {
-    // Más adelante puedes pasar req.body para hacerla dinámica
-    const data = await callPublicSimulation();
-
-    return res.json({
-      ok: true,
-      source: 'bci',
-      data,
-    });
-  } catch (err) {
-    console.error('Error llamando a BCI:', err.response?.data || err.message);
-
-    return res.status(500).json({
-      ok: false,
-      message: 'Error al consumir BCI /public-simulation/simulate',
-      error: err.response?.data || err.message,
-    });
-  }
-}

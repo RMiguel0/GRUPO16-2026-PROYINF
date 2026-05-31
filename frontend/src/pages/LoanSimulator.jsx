@@ -75,15 +75,26 @@ export function LoanSimulator() {
   }
 
   function handleApplyForLoan() {
+    const simulationDraft = {
+      amount: currentCalculation.amount,
+      termMonths: currentCalculation.termMonths,
+      interestRate: currentCalculation.interestRate,
+      monthlyPayment: currentCalculation.monthlyPayment,
+      totalInterest: currentCalculation.totalInterest,
+      totalAmount: currentCalculation.totalAmount,
+    };
+
+    try {
+      sessionStorage.setItem("pendingLoanSimulation", JSON.stringify(simulationDraft));
+    } catch (error) {
+      console.error("No se pudo guardar la simulacion pendiente:", error);
+    }
+
     navigate('/apply', {
-      state: {
-        amount: currentCalculation.amount,
-        termMonths: currentCalculation.termMonths,
-      },
+      state: simulationDraft,
     });
   }
 
-  const bciData = null;
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 to-gray-100">
       <header className="sticky top-0 z-30 bg-white/80 backdrop-blur border-b border-gray-200">

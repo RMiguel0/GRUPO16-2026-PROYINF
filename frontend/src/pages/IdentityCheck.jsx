@@ -1,4 +1,3 @@
-// pages/IdentityCheck.jsx
 import React, { useEffect, useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import EmailVerification from "../components/EmailVerification.jsx";
@@ -6,22 +5,19 @@ import FaceMatchCheck from "../components/FaceMatchCheck.jsx";
 import { validarRUT } from "../utils/rutUtils.js";
 import { useAuth } from "../context/AuthContext.jsx";
 
-/**
- * Esta vista concentra:
- *  1) Validación de RUT (automática)
- *  2) Verificación de correo (OTP con SendGrid)
- *  3) Coincidencia facial (foto documento vs cámara)
- *
- * Llega desde LoanApplicationForm con:
- *  - state.application (datos de solicitud)
- *  - state.idImageFile (File de la foto del documento)
- */
+function getApiBase() {
+  const envBase = import.meta.env.VITE_API_URL;
+  if (!envBase || envBase.includes("://api:")) return "http://localhost:3000";
+  return envBase.replace(/\/$/, "");
+}
+
+const API_BASE = getApiBase();
+
 export default function IdentityCheck() {
   const navigate = useNavigate();
   const { state } = useLocation() || {};
   const { token } = useAuth();
 
-  // Normalizamos la entrada y damos un fallback de almacenamiento local
   const fromStateApp = state?.application || null;
   const fromStateIdFile = state?.idImageFile || null;
 
@@ -39,28 +35,21 @@ export default function IdentityCheck() {
     [fromStateApp, fromStorage]
   );
 
-  // ⚠️ Para la comparación facial necesitamos sí o sí el archivo del documento
   const idImageFile = fromStateIdFile;
+  const requiresFaceMatch = Boolean(idImageFile);
 
-  // Estados de verificación
   const [rutOk, setRutOk] = useState(false);
   const [emailVerified, setEmailVerified] = useState(false);
   const [faceOk, setFaceOk] = useState(false);
-
-  // Para “Reintentar” la coincidencia facial remonta el componente
   const [faceRunId, setFaceRunId] = useState(0);
-
-  // Estado para manejar envío al backend y errores
   const [submitting, setSubmitting] = useState(false);
-  const [serverError, setServerError] = useState('');
+  const [serverError, setServerError] = useState("");
 
-  // Valida RUT al montar
   useEffect(() => {
     const id = application?.applicant?.identification;
     setRutOk(Boolean(id) && validarRUT(id));
   }, [application]);
 
-  // Guarda el application (para recuperación si recargan)
   useEffect(() => {
     if (fromStateApp) {
       try {
@@ -69,17 +58,17 @@ export default function IdentityCheck() {
     }
   }, [fromStateApp]);
 
-  if (!application || !idImageFile) {
+  if (!application) {
     return (
       <div className="max-w-3xl mx-auto p-6">
-        <h1 className="text-2xl font-semibold mb-2">Validación de identidad</h1>
+        <h1 className="text-2xl font-semibold mb-2">Validacion de identidad</h1>
         <div className="p-4 border rounded-lg">
           <h2 className="font-medium mb-2">Faltan datos</h2>
           <p className="text-sm text-gray-600">
-            Vuelve al formulario y sube la imagen del documento para poder comparar el rostro.
+            Vuelve a la solicitud para revisar los datos del credito y documentos.
           </p>
           <div className="mt-4">
-            <button onClick={() => navigate(-1)} className="px-4 py-2 rounded-lg border">
+            <button onClick={() => navigate("/apply")} className="px-4 py-2 rounded-lg border">
               Volver
             </button>
           </div>
@@ -89,15 +78,13 @@ export default function IdentityCheck() {
   }
 
   const email = application?.applicant?.email || "";
-
-  const allOk = rutOk && emailVerified && faceOk;
+  const allOk = rutOk && emailVerified && (!requiresFaceMatch || faceOk);
 
   const handleContinue = async () => {
     if (!allOk) return;
-    setServerError('');
+    setServerError("");
     setSubmitting(true);
     try {
-      // Extraemos datos necesarios para scoring
       const ident = application?.applicant?.identification;
       const fullName = application?.applicant?.fullName;
       const email = application?.applicant?.email;
@@ -107,10 +94,10 @@ export default function IdentityCheck() {
       const amount = application?.loan?.amount;
       const termMonths = application?.loan?.termMonths;
 
-      const res = await fetch('/api/loans/apply', {
-        method: 'POST',
+      const res = await fetch(`${API_BASE}/api/loans/apply`, {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
           ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
@@ -124,16 +111,18 @@ export default function IdentityCheck() {
           termMonths,
         }),
       });
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error('network');
+        throw new Error(data.error || "network");
       }
-      const data = await res.json();
+
       if (data.rejected) {
-        setServerError('Tu solicitud fue rechazada por alto riesgo. No podemos ofrecer este crédito.');
+        setServerError("Tu solicitud fue rechazada por alto riesgo. No podemos ofrecer este credito.");
         setSubmitting(false);
         return;
       }
-      // data.application contiene el registro guardado
+
       const contract = data.application;
       const evaluation = {
         score: data.score,
@@ -142,17 +131,18 @@ export default function IdentityCheck() {
         interestRateAnnual: data.interestRateAnnual,
         monthlyPayment: data.monthlyPayment,
       };
-      // Guardamos en localStorage para recuperación
+
       try {
-        localStorage.setItem('latestContract', JSON.stringify({ contract, evaluation }));
+        localStorage.setItem("latestContract", JSON.stringify({ contract, evaluation }));
       } catch {}
-      navigate('/contract-review', {
+
+      navigate("/contract-review", {
         state: { contract, evaluation },
         replace: true,
       });
     } catch (err) {
-      console.error('Error al aplicar solicitud:', err);
-      setServerError('Ocurrió un error al evaluar tu solicitud. Intenta nuevamente.');
+      console.error("Error al aplicar solicitud:", err);
+      setServerError(err.message || "Ocurrio un error al evaluar tu solicitud. Intenta nuevamente.");
     } finally {
       setSubmitting(false);
     }
@@ -161,19 +151,16 @@ export default function IdentityCheck() {
   return (
     <div className="max-w-3xl mx-auto p-6">
       <button onClick={() => navigate(-1)} className="mb-4 flex items-center gap-2 text-sm">
-        ← Volver al formulario
+        Volver a la solicitud
       </button>
 
-      <h1 className="text-2xl font-semibold mb-1">Validación de identidad</h1>
+      <h1 className="text-2xl font-semibold mb-1">Validacion de identidad</h1>
       <p className="text-gray-600 text-sm mb-6">
-        Comprobemos que la persona del documento coincide contigo y que puedes recibir un código por correo.
+        Comprobemos que el RUT de la solicitud es valido y que puedes recibir un codigo por correo.
       </p>
 
-      {/* Datos del solicitante, como en ContractReview */}
-
-      {/* Verificación de correo (migrada desde ContractReview) */}
       <section className="mb-6 border rounded-xl p-4">
-        <h2 className="font-medium mb-3">Verificación de correo</h2>
+        <h2 className="font-medium mb-3">Verificacion de correo</h2>
         {email ? (
           <EmailVerification
             email={email}
@@ -184,34 +171,44 @@ export default function IdentityCheck() {
         )}
       </section>
 
-      {/* Coincidencia facial (documento vs cámara) */}
       <section className="mb-6 border rounded-xl p-4">
-        <div className="flex items-center justify-between mb-3">
-          <h2 className="font-medium">Verificación de coincidencia facial</h2>
-          <button
-            type="button"
-            onClick={() => {
-              setFaceOk(false);
-              setFaceRunId((n) => n + 1); // remonta el componente para reintentar
-            }}
-            className="text-sm text-blue-600 hover:underline"
-          >
-            Reintentar
-          </button>
-        </div>
+        {requiresFaceMatch ? (
+          <>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-medium">Verificacion de coincidencia facial</h2>
+              <button
+                type="button"
+                onClick={() => {
+                  setFaceOk(false);
+                  setFaceRunId((n) => n + 1);
+                }}
+                className="text-sm text-blue-600 hover:underline"
+              >
+                Reintentar
+              </button>
+            </div>
 
-        <FaceMatchCheck
-          key={faceRunId}
-          idImageFile={idImageFile}
-          onPassed={() => setFaceOk(true)}
-          onFailed={() => setFaceOk(false)}
-        />
+            <FaceMatchCheck
+              key={faceRunId}
+              idImageFile={idImageFile}
+              onPassed={() => setFaceOk(true)}
+              onFailed={() => setFaceOk(false)}
+            />
+          </>
+        ) : (
+          <div>
+            <h2 className="font-medium mb-2">Validacion documental</h2>
+            <p className="text-sm text-gray-600">
+              La solicitud usa los documentos cargados en tu perfil. En este flujo la identidad continua con RUT y verificacion por correo.
+            </p>
+          </div>
+        )}
       </section>
 
-      {/* CTA */}
-      {serverError && (
+      {serverError ? (
         <div className="mb-4 text-sm text-red-600">{serverError}</div>
-      )}
+      ) : null}
+
       <div className="flex gap-3">
         <button onClick={() => navigate(-1)} className="px-4 py-2 rounded-lg border">
           Volver
@@ -220,9 +217,9 @@ export default function IdentityCheck() {
           onClick={handleContinue}
           disabled={!allOk || submitting}
           className="px-4 py-2 rounded-lg text-white"
-          style={{ backgroundColor: allOk && !submitting ? '#000000' : '#cccccc' }}
+          style={{ backgroundColor: allOk && !submitting ? "#000000" : "#cccccc" }}
         >
-          {submitting ? 'Evaluando...' : 'Continuar al contrato'}
+          {submitting ? "Evaluando..." : "Continuar al contrato"}
         </button>
       </div>
     </div>

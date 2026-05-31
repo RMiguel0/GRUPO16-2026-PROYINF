@@ -16,6 +16,12 @@ export default function DocumentReviewPanel({
   onFieldChange,
   onSaveFields,
   onReprocess,
+  onBack,
+  onContinue,
+  continueDisabled = false,
+  continueLabel = "Continuar Evaluacion",
+  backLabel = "Volver al Resumen",
+  footerHint = "",
 }) {
   const isProfile = mode === "profile";
   const isControlled = Array.isArray(controlledDocuments);
@@ -37,6 +43,7 @@ export default function DocumentReviewPanel({
   const completedCount = documents.filter((doc) =>
     ["processed", "manual_review"].includes(doc.status)
   ).length;
+  const canReprocess = Boolean(onReprocess) || !isControlled;
 
   const handleSelect = (id) => setSelectedId(id);
 
@@ -143,7 +150,7 @@ export default function DocumentReviewPanel({
           document={selectedDocument}
           onFieldChange={handleFieldChange}
           onSaveFields={onSaveFields}
-          onReprocess={isProfile ? null : handleMockProcess}
+          onReprocess={!isProfile && canReprocess ? handleMockProcess : null}
           mode={mode}
           saving={savingDocumentId === selectedDocument?.id}
         />
@@ -168,13 +175,27 @@ export default function DocumentReviewPanel({
               {savingDocumentId === selectedDocument?.id ? "Guardando..." : "Guardar cambios"}
             </button>
           ) : (
-            <div className="flex gap-5">
-              <button className="rounded-lg border border-slate-300 bg-white px-7 py-3 font-semibold text-slate-700 shadow-sm hover:bg-slate-50">
-                Volver al Resumen
-              </button>
-              <button className="rounded-lg bg-blue-600 px-8 py-3 font-semibold text-white shadow-sm hover:bg-blue-700">
-                Continuar Evaluacion
-              </button>
+            <div className="flex flex-col gap-3 sm:items-end">
+              {footerHint ? (
+                <p className="max-w-md text-sm text-slate-600">{footerHint}</p>
+              ) : null}
+              <div className="flex gap-5">
+                <button
+                  type="button"
+                  onClick={onBack}
+                  className="rounded-lg border border-slate-300 bg-white px-7 py-3 font-semibold text-slate-700 shadow-sm hover:bg-slate-50"
+                >
+                  {backLabel}
+                </button>
+                <button
+                  type="button"
+                  onClick={onContinue}
+                  disabled={continueDisabled}
+                  className="rounded-lg bg-blue-600 px-8 py-3 font-semibold text-white shadow-sm hover:bg-blue-700 disabled:bg-blue-300"
+                >
+                  {continueLabel}
+                </button>
+              </div>
             </div>
           )}
         </div>

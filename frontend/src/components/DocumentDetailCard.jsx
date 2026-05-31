@@ -44,7 +44,6 @@ export default function DocumentDetailCard({
 }) {
   if (!document) return null;
 
-  const isProfile = mode === "profile";
   const warnings = Array.isArray(document.warnings) ? document.warnings : [];
   const errors = Array.isArray(document.errors) ? document.errors : [];
   const showVerified = document.status === "processed" && warnings.length === 0 && errors.length === 0;
@@ -76,7 +75,7 @@ export default function DocumentDetailCard({
             </button>
           ) : null}
 
-          {isProfile ? (
+          {onSaveFields ? (
             <button
               type="button"
               onClick={() => onSaveFields?.(document.id, document.fields || {})}
