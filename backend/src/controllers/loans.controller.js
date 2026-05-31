@@ -1,7 +1,12 @@
 // Controladores: reciben req/res y llaman a services.
 import { evaluateApplication } from '../utils/scoring.js';
 import { createLoanApplication } from '../db/repositories/loan.repository.js';
-import { CREDIT_STATUS, createCredit } from '../db/repositories/credits.repository.js';
+import {
+  CREDIT_STATUS,
+  createCredit,
+  findCreditByIdForUser,
+  updateCreditStatus,
+} from '../db/repositories/credits.repository.js';
 
 /**
  * Simulate a loan offer given the applicant's information. It expects a
@@ -70,13 +75,28 @@ function paymentTotals({ amount, termMonths, monthlyPayment }) {
   };
 }
 
+function requireUserRut(req, res) {
+  if (!req.user?.rut) {
+    res.status(409).json({
+      error: 'MISSING_USER_RUT',
+      message: 'Debes tener un RUT asociado a tu cuenta para solicitar creditos.',
+    });
+    return null;
+  }
+
+  return req.user.rut;
+}
+
+function creditMessageForRejection() {
+  return 'No cumples las condiciones para este credito.';
+}
+
 /**
  * Apply for a real loan. This endpoint persists the application and its
  * evaluation in the database. It expects applicant details, financial
- * information and loan terms. If the evaluation deems the applicant high
- * risk (rejected) it returns the evaluation without storing. Otherwise it
- * stores the application and returns both the evaluation and the saved
- * record.
+ * information and loan terms. Every evaluated application is stored. Rejected
+ * applications create a rejected credit attempt, while approved applications
+ * create a processing credit that becomes active only after contract confirmation.
  *
  * Expected body:
  * {
@@ -92,6 +112,9 @@ function paymentTotals({ amount, termMonths, monthlyPayment }) {
  */
 export async function applyLoan(req, res, next) {
   try {
+    const rut = requireUserRut(req, res);
+    if (!rut) return;
+
     const {
       identification,
       fullName,
@@ -131,42 +154,8 @@ export async function applyLoan(req, res, next) {
       monthlyPayment: evalResult.monthlyPayment,
     });
 
-    // If high risk, store the rejected credit attempt without creating a loan_application row.
-    if (evalResult.rejected) {
-      const credit = await createCredit({
-        userId: req.user.id,
-        rut: req.user.rut,
-        status: CREDIT_STATUS.REJECTED,
-        amount: amt,
-        termMonths: term,
-        interestRateMonthly: evalResult.interestRateMonthly,
-        interestRateAnnual: evalResult.interestRateAnnual,
-        monthlyPayment: evalResult.monthlyPayment,
-        totalPayment: totals.totalPayment,
-        totalInterest: totals.totalInterest,
-        score: evalResult.score,
-        risk: evalResult.risk,
-        rejectionReason: 'Solicitud rechazada por alto riesgo.',
-        metadata: {
-          applicant: {
-            identification,
-            fullName,
-            email,
-            phone,
-            monthlyIncome: income,
-            employmentStatus,
-          },
-          breakdown: evalResult.breakdown,
-        },
-        rejectedAt: new Date().toISOString(),
-      });
-
-      return res.json({ ...evalResult, credit });
-    }
-
-    // Persist the application
     const record = await createLoanApplication({
-      user_id: req.user?.id ?? null,
+      user_id: req.user.id,
       identification,
       full_name: fullName,
       email,
@@ -185,8 +174,8 @@ export async function applyLoan(req, res, next) {
 
     const credit = await createCredit({
       userId: req.user.id,
-      rut: req.user.rut,
-      status: CREDIT_STATUS.ACTIVE,
+      rut,
+      status: evalResult.rejected ? CREDIT_STATUS.REJECTED : CREDIT_STATUS.PROCESSING,
       amount: amt,
       termMonths: term,
       interestRateMonthly: evalResult.interestRateMonthly,
@@ -196,6 +185,7 @@ export async function applyLoan(req, res, next) {
       totalInterest: totals.totalInterest,
       score: evalResult.score,
       risk: evalResult.risk,
+      rejectionReason: evalResult.rejected ? creditMessageForRejection() : null,
       sourceApplicationId: record.id,
       metadata: {
         applicant: {
@@ -208,10 +198,61 @@ export async function applyLoan(req, res, next) {
         },
         breakdown: evalResult.breakdown,
       },
-      confirmedAt: new Date().toISOString(),
+      rejectedAt: evalResult.rejected ? new Date().toISOString() : null,
     });
 
+    if (evalResult.rejected) {
+      return res.json({
+        ...evalResult,
+        message: creditMessageForRejection(),
+        application: record,
+        credit,
+      });
+    }
+
     return res.json({ ...evalResult, application: record, credit });
+  } catch (err) {
+    return next(err);
+  }
+}
+
+export async function confirmCredit(req, res, next) {
+  try {
+    const { creditId } = req.params;
+    const credit = await findCreditByIdForUser({ creditId, userId: req.user.id });
+
+    if (!credit) {
+      return res.status(404).json({ error: 'CREDIT_NOT_FOUND' });
+    }
+
+    if (Number(credit.status) === CREDIT_STATUS.REJECTED) {
+      return res.status(409).json({
+        error: 'CREDIT_REJECTED',
+        message: 'No se puede confirmar un credito rechazado.',
+      });
+    }
+
+    if (Number(credit.status) === CREDIT_STATUS.ACTIVE) {
+      return res.json({ credit, alreadyConfirmed: true });
+    }
+
+    if (Number(credit.status) !== CREDIT_STATUS.PROCESSING) {
+      return res.status(409).json({
+        error: 'INVALID_CREDIT_STATUS',
+        message: 'Solo se pueden confirmar creditos en procesamiento.',
+      });
+    }
+
+    const updated = await updateCreditStatus({
+      creditId,
+      userId: req.user.id,
+      status: CREDIT_STATUS.ACTIVE,
+      patch: {
+        confirmedAt: new Date().toISOString(),
+      },
+    });
+
+    return res.json({ credit: updated });
   } catch (err) {
     return next(err);
   }

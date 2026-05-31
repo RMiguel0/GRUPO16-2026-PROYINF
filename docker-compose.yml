@@ -28,7 +28,8 @@ services:
     ports:
       - "3000:3000"
     volumes:
-      - ./backend:/app
+      - ./backend:/usr/src/app
+      - /usr/src/app/node_modules
 
   web:
     build:

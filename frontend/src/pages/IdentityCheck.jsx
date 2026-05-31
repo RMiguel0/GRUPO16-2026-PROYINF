@@ -44,6 +44,7 @@ export default function IdentityCheck() {
   const [faceRunId, setFaceRunId] = useState(0);
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
+  const [rejectedCredit, setRejectedCredit] = useState(null);
 
   useEffect(() => {
     const id = application?.applicant?.identification;
@@ -83,6 +84,7 @@ export default function IdentityCheck() {
   const handleContinue = async () => {
     if (!allOk) return;
     setServerError("");
+    setRejectedCredit(null);
     setSubmitting(true);
     try {
       const ident = application?.applicant?.identification;
@@ -118,12 +120,16 @@ export default function IdentityCheck() {
       }
 
       if (data.rejected) {
-        setServerError("Tu solicitud fue rechazada por alto riesgo. No podemos ofrecer este credito.");
+        setRejectedCredit(data.credit || null);
+        setServerError(
+          data.message || "No cumples las condiciones para este credito. El intento quedo registrado en Mis Creditos como rechazado."
+        );
         setSubmitting(false);
         return;
       }
 
       const contract = data.application;
+      const credit = data.credit;
       const evaluation = {
         score: data.score,
         risk: data.risk,
@@ -133,11 +139,11 @@ export default function IdentityCheck() {
       };
 
       try {
-        localStorage.setItem("latestContract", JSON.stringify({ contract, evaluation }));
+        localStorage.setItem("latestContract", JSON.stringify({ contract, evaluation, credit }));
       } catch {}
 
       navigate("/contract-review", {
-        state: { contract, evaluation },
+        state: { contract, evaluation, credit },
         replace: true,
       });
     } catch (err) {
@@ -206,7 +212,18 @@ export default function IdentityCheck() {
       </section>
 
       {serverError ? (
-        <div className="mb-4 text-sm text-red-600">{serverError}</div>
+        <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
+          <p>{serverError}</p>
+          {rejectedCredit ? (
+            <button
+              type="button"
+              onClick={() => navigate("/perfil/mis-creditos")}
+              className="mt-3 rounded-lg border border-red-300 bg-white px-3 py-2 font-semibold text-red-700 hover:bg-red-100"
+            >
+              Ver en Mis Creditos
+            </button>
+          ) : null}
+        </div>
       ) : null}
 
       <div className="flex gap-3">

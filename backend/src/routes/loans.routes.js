@@ -6,6 +6,7 @@ const router = Router();
 
 router.post('/simulate', controller.simulateLoan);
 router.post('/apply', auth(), controller.applyLoan);
+router.post('/:creditId/confirm', auth(), controller.confirmCredit);
 
 // Deja el placeholder si quieres:
 router.get('/placeholder', (_req, res) => res.json({ msg: 'Loans routes ready' }));
