@@ -334,9 +334,10 @@ router.get('/loan-recommendation', auth(), async (req, res, next) => {
   } catch (err) {
     if (err.code === 'INSUFFICIENT_FINANCIAL_DATA') {
       return res.status(err.status || 422).json({
-        error: err.code,
-        missingFields: err.missingFields || [],
-        requiredDocuments: err.requiredDocuments || {},
+        ok: false,
+        reason: err.reason || 'INSUFFICIENT_DOCUMENTS',
+        message: 'No podemos generar tu recomendación personalizada porque aún faltan documentos necesarios para evaluar tu perfil financiero.',
+        missingDocuments: err.missingDocuments || [],
       });
     }
 

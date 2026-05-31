@@ -12,6 +12,12 @@ const DEFAULT_MODEL_THRESHOLD = Number(process.env.RECOMMENDATION_MODEL_THRESHOL
 const DEFAULT_ML_SERVICE_URL = process.env.ML_SERVICE_URL ?? 'http://localhost:8000';
 const DEFAULT_MAX_INCOME_MULTIPLE = Number(process.env.RECOMMENDATION_MAX_INCOME_MULTIPLE ?? 1);
 const DEBT_TOTAL_TO_MONTHLY_FACTOR = Number(process.env.RECOMMENDATION_DEBT_MONTHLY_FACTOR ?? 0.03);
+const MISSING_FIELD_DOCUMENTS = {
+  monthlyIncome: 'Liquidación de sueldo o certificado de remuneraciones imponibles.',
+  currentDebtMonthly: 'Informe de deudas CMF.',
+  noOfDependents: 'Cartola de Registro Social de Hogares .',
+  employmentStatus: 'Certificado laboral o documento que acredite situación laboral actual.',
+};
 
 function asNumber(value) {
   if (value === null || value === undefined || value === '') return null;
@@ -203,6 +209,12 @@ function serializeScenario(scenario) {
   };
 }
 
+function mapMissingFieldsToDocuments(missingFields) {
+  return missingFields
+    .map((field) => MISSING_FIELD_DOCUMENTS[field])
+    .filter(Boolean);
+}
+
 export async function getLoanRecommendationForUser(user) {
   if (!user?.id) {
     const error = new Error('Debes iniciar sesion.');
@@ -217,13 +229,8 @@ export async function getLoanRecommendationForUser(user) {
     const error = new Error('Informacion financiera insuficiente.');
     error.status = 422;
     error.code = 'INSUFFICIENT_FINANCIAL_DATA';
-    error.missingFields = financialProfile.missingFields;
-    error.requiredDocuments = {
-      monthlyIncome: 'Liquidacion de sueldo o certificado AFP de remuneraciones imponibles',
-      currentDebtMonthly: 'Informe de deudas CMF o documento con deuda mensual vigente',
-      noOfDependents: 'Documento de perfil financiero con numero de dependientes',
-      employmentStatus: 'Liquidacion de sueldo, certificado laboral o perfil financiero',
-    };
+    error.reason = 'INSUFFICIENT_DOCUMENTS';
+    error.missingDocuments = mapMissingFieldsToDocuments(financialProfile.missingFields);
     throw error;
   }
 

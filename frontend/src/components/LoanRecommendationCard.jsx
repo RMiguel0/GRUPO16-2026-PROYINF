@@ -72,7 +72,8 @@ export default function LoanRecommendationCard() {
     });
   }
 
-  const missingData = error?.error === "INSUFFICIENT_FINANCIAL_DATA";
+  const missingDocuments = Array.isArray(error?.missingDocuments) ? error.missingDocuments : [];
+  const missingData = error?.reason === "INSUFFICIENT_DOCUMENTS" || error?.error === "INSUFFICIENT_FINANCIAL_DATA";
   const recommendation = data?.recommendation;
 
   return (
@@ -104,19 +105,20 @@ export default function LoanRecommendationCard() {
           <AlertCircle className="mt-0.5 h-5 w-5 shrink-0" />
           <div>
             <p className="font-semibold">
-              No hay información financiera suficiente. Sube o actualiza tus documentos para generar una recomendación.
+              No podemos generar tu recomendación personalizada porque aún faltan documentos necesarios para evaluar tu perfil financiero.
             </p>
-            {error?.missingFields?.length > 0 && (
-              <p className="mt-1 text-amber-800">
-                Faltan: {error.missingFields.join(", ")}.
-              </p>
-            )}
-            {error?.requiredDocuments && (
-              <p className="mt-1 text-amber-800">
-                Documentos sugeridos: {(error.missingFields || [])
-                  .map((field) => error.requiredDocuments[field])
-                  .filter(Boolean)
-                  .join("; ")}.
+            {missingDocuments.length > 0 ? (
+              <div className="mt-3 text-amber-800">
+                <p className="font-medium">Documentos faltantes:</p>
+                <ul className="mt-2 list-disc space-y-1 pl-5">
+                  {missingDocuments.map((document) => (
+                    <li key={document}>{document}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : (
+              <p className="mt-2 text-amber-800">
+                Debes actualizar tus documentos financieros antes de solicitar una recomendación personalizada.
               </p>
             )}
           </div>
