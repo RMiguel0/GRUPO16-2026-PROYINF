@@ -1,4 +1,5 @@
 // Controladores: reciben req/res y llaman a services.
+import { createSignedContract } from '../db/repositories/signed_contracts.repository.js';
 import { evaluateApplication } from '../utils/scoring.js';
 import { createLoanApplication } from '../db/repositories/loan.repository.js';
 import {
@@ -7,6 +8,7 @@ import {
   findCreditByIdForUser,
   updateCreditStatus,
 } from '../db/repositories/credits.repository.js';
+import { incrustarFirmaYEnviar } from "../services/Incrustar_firma.js";
 
 /**
  * Simulate a loan offer given the applicant's information. It expects a
@@ -258,3 +260,38 @@ export async function confirmCredit(req, res, next) {
   }
 }
 
+export async function firmarPrestamo(req, res) {
+  try {
+    const { firmaBase64, destinatario, creditId, datosContrato } = req.body;
+
+    if (!firmaBase64 || !destinatario) {
+      return res.status(400).json({ error: 'Faltan datos: firmaBase64 y destinatario son requeridos.' });
+    }
+
+    // Generar PDF y enviar email
+    await incrustarFirmaYEnviar(firmaBase64, destinatario, datosContrato || {});
+
+    // Registrar contrato firmado en BD
+    if (creditId && req.user?.id) {
+      await createSignedContract({
+        creditId,
+        userId:      req.user.id,
+        signerName:  datosContrato?.fullName  ?? destinatario,
+        signerEmail: destinatario,
+        signerRut:   req.user.rut ?? datosContrato?.identification ?? '-',
+        ipAddress:   req.ip ?? req.headers['x-forwarded-for'] ?? null,
+        userAgent:   req.headers['user-agent'] ?? null,
+        firmaBase64,
+      });
+    }
+
+    return res.status(200).json({
+      message: 'Contrato firmado y enviado correctamente.',
+      creditId,
+      signedAt: new Date().toISOString(),
+    });
+  } catch (error) {
+    console.error('Error en firmarPrestamo:', error);
+    return res.status(500).json({ error: 'No se pudo procesar la firma.' });
+  }
+}
