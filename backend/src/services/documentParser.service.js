@@ -2,7 +2,7 @@ import { parseIdentity } from './parsers/identity.parser.js';
 import { parseAfpImponibles } from './parsers/afpImponibles.parser.js';
 import { parseCmfDebt } from './parsers/cmf.parser.js';
 import { parseSalary } from './parsers/salary.parser.js';
-import { parseSeniority } from './parsers/seniority.parser.js';
+import { parseSocialRegistry } from './parsers/socialRegistry.parser.js';
 
 export function analyzeDocument(text, documentType) {
   switch (documentType) {
@@ -18,8 +18,8 @@ export function analyzeDocument(text, documentType) {
     case 'salary':
       return parseSalary(text);
 
-    case 'seniority':
-      return parseSeniority(text);
+    case 'social_registry':
+      return parseSocialRegistry(text);
 
     default:
       throw new Error(`Tipo de documento no soportado: ${documentType}`);

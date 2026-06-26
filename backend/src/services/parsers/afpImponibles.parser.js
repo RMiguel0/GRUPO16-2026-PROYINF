@@ -4,19 +4,24 @@ import {
   average,
 } from './parserUtils.js';
 
+function prepareAfpText(text = '') {
+  return normalizeText(text)
+    .replace(/(\d{2})-\s+(\d{4})/g, '$1-$2')
+    .replace(/(\d{1,2}\.\d{3}\.\d{3})-\s*([0-9kK])/g, '$1-$2')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 function cleanEmployerName(name = '') {
   return name
-    .replace(/\n/g, ' ')
     .replace(/\s+/g, ' ')
     .replace(/\b[A-E]\b\s*$/i, '')
     .trim();
 }
 
 function parseAfpRows(text) {
-  const normalized = normalizeText(text);
-  const rows = [];
-
-  const tableStart = normalized.search(/01-\d{4}|12-\d{4}|11-\d{4}/);
+  const normalized = prepareAfpText(text);
+  const tableStart = normalized.search(/\b\d{2}-\d{4}\s+[\d.]+\s+\d{1,2}\.\d{3}\.\d{3}-[0-9kK]\b/);
   const tableEnd = normalized.search(/Tipos\s+de\s+Fondos/i);
 
   const tableText =
@@ -25,8 +30,9 @@ function parseAfpRows(text) {
       : normalized;
 
   const rowRegex =
-    /(\d{2}-\d{4})\s+([\d.]+)\s+(\d{1,2}\.\d{3}\.\d{3}-[0-9kK])\s+([\s\S]*?)(?=\n\d{2}-\d{4}\s+[\d.]|\nTipos\s+de\s+Fondos|$)/gi;
+    /(\d{2}-\d{4})\s+([\d.]+)\s+(\d{1,2}\.\d{3}\.\d{3}-[0-9kK])\s+([\s\S]*?)(?=\s+\d{2}-\d{4}\s+[\d.]+\s+\d{1,2}\.\d{3}\.\d{3}-[0-9kK]|\s+Tipos\s+de\s+Fondos|$)/gi;
 
+  const rows = [];
   let match;
   while ((match = rowRegex.exec(tableText)) !== null) {
     const [, period, taxableIncome, employerRut, rawEmployerName] = match;
@@ -54,9 +60,12 @@ function mostFrequent(values = []) {
 
 export function parseAfpImponibles(rawText = '') {
   const text = normalizeText(rawText);
+  const searchableText = prepareAfpText(text);
   const rows = parseAfpRows(text);
 
-  const rangeMatch = text.match(
+  const rangeMatch = searchableText.match(
+    /periodo\s+comprendido\s+entre\s+(\d{2}\/\d{4})\s+y\s+(\d{2}\/\d{4})/i
+  ) || searchableText.match(
     /per[ií]odo\s+comprendido\s+entre\s+(\d{2}\/\d{4})\s+y\s+(\d{2}\/\d{4})/i
   );
 

@@ -56,63 +56,125 @@ function extractPdfFromIlovePdfResult(resultBuffer) {
   throw new Error('El resultado de iLovePDF no contiene un PDF convertido');
 }
 
+function isRetryableIlovePdfAuthError(error) {
+  const message = String(error?.message || '');
+  return /401|unauthorized|signature verification failed/i.test(message);
+}
+
+async function withIlovePdfRetry(operation) {
+  try {
+    return await operation();
+  } catch (error) {
+    if (!isRetryableIlovePdfAuthError(error)) {
+      throw error;
+    }
+
+    return operation();
+  }
+}
+
 export async function convertImageToPdf(
   fileBuffer,
   filename = 'documento.jpg',
   mimeType = 'image/jpeg',
 ) {
-  const token = await authenticateIlovePdf();
-  const { server, task } = await startIlovePdfTask(token, 'imagepdf');
+  return withIlovePdfRetry(async () => {
+    const token = await authenticateIlovePdf();
+    const { server, task } = await startIlovePdfTask(token, 'imagepdf');
 
-  const serverFilename = await uploadFileToIlovePdf(
-    token,
-    server,
-    task,
-    fileBuffer,
-    filename,
-    mimeType,
-  );
-
-  await processIlovePdfTask(token, server, task, 'imagepdf', [
-    {
-      server_filename: serverFilename,
+    const serverFilename = await uploadFileToIlovePdf(
+      token,
+      server,
+      task,
+      fileBuffer,
       filename,
-    },
-  ], {
-    orientation: 'portrait',
-    margin: 0,
-    pagesize: 'fit',
-    merge_after: true,
-  });
+      mimeType,
+    );
 
-  const resultBuffer = await downloadIlovePdfResult(token, server, task);
-  return extractPdfFromIlovePdfResult(resultBuffer);
+    await processIlovePdfTask(token, server, task, 'imagepdf', [
+      {
+        server_filename: serverFilename,
+        filename,
+      },
+    ], {
+      orientation: 'portrait',
+      margin: 0,
+      pagesize: 'fit',
+      merge_after: true,
+    });
+
+    const resultBuffer = await downloadIlovePdfResult(token, server, task);
+    return extractPdfFromIlovePdfResult(resultBuffer);
+  });
+}
+
+export async function applyOcrToPdf(
+  fileBuffer,
+  filename = 'documento.pdf',
+  ocrLanguages = ['spa', 'eng'],
+) {
+  return withIlovePdfRetry(async () => {
+    const token = await authenticateIlovePdf();
+    const { server, task } = await startIlovePdfTask(token, 'pdfocr');
+
+    const serverFilename = await uploadFileToIlovePdf(
+      token,
+      server,
+      task,
+      fileBuffer,
+      filename,
+      'application/pdf',
+    );
+
+    await processIlovePdfTask(token, server, task, 'pdfocr', [
+      {
+        server_filename: serverFilename,
+        filename,
+      },
+    ], {
+      ocr_languages: ocrLanguages,
+    });
+
+    const resultBuffer = await downloadIlovePdfResult(token, server, task);
+    return extractPdfFromIlovePdfResult(resultBuffer);
+  });
 }
 
 export async function extractTextFromPdf(fileBuffer, filename = 'documento.pdf') {
-  const token = await authenticateIlovePdf();
+  return withIlovePdfRetry(async () => {
+    const token = await authenticateIlovePdf();
 
-  const { server, task } = await startIlovePdfTask(token, 'extract');
+    const { server, task } = await startIlovePdfTask(token, 'extract');
 
-  const serverFilename = await uploadFileToIlovePdf(
-    token,
-    server,
-    task,
-    fileBuffer,
-    filename,
-    'application/pdf',
-  );
-
-  await processIlovePdfTask(token, server, task, 'extract', [
-    {
-      server_filename: serverFilename,
+    const serverFilename = await uploadFileToIlovePdf(
+      token,
+      server,
+      task,
+      fileBuffer,
       filename,
-    },
-  ]);
+      'application/pdf',
+    );
 
-  const resultBuffer = await downloadIlovePdfResult(token, server, task);
+    await processIlovePdfTask(token, server, task, 'extract', [
+      {
+        server_filename: serverFilename,
+        filename,
+      },
+    ]);
 
-  const extractedText = extractTextFromIlovePdfResult(resultBuffer);
+    const resultBuffer = await downloadIlovePdfResult(token, server, task);
+
+    const extractedText = extractTextFromIlovePdfResult(resultBuffer);
   
-  return extractedText;
+    return extractedText;
+  });
+}
+
+export async function extractTextFromPdfWithOcr(
+  fileBuffer,
+  filename = 'documento.pdf',
+  ocrLanguages = ['spa', 'eng'],
+) {
+  const searchablePdf = await applyOcrToPdf(fileBuffer, filename, ocrLanguages);
+  return extractTextFromPdf(searchablePdf, filename);
 }

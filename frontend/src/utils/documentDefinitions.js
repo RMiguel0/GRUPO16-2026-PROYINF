@@ -8,6 +8,35 @@ export const DOCUMENT_DEFINITIONS = [
     expectedFields: ["rut", "fullName", "birthDate", "docNumber", "expiryDate"],
   },
   {
+    id: "financial_profile",
+    title: "Perfil Financiero",
+    description: "Tipo laboral, destino e ingresos adicionales",
+    icon: "FIN",
+    requiredForApplication: true,
+    manual: true,
+    expectedFields: [
+      "employmentType",
+      "employmentStatus",
+      "laborStartMonth",
+      "laborStartYear",
+      "laborSeniorityMonths",
+      "loanPurpose",
+      "additionalIncome",
+    ],
+  },
+  {
+    id: "social_registry",
+    title: "Registro Social de Hogares",
+    description: "Tramo socioeconomico, cargas y bienes",
+    icon: "RSH",
+    requiredForApplication: true,
+    expectedFields: [
+      "socioEconomicPercent",
+      "householdDependents",
+      "assetsCount",
+    ],
+  },
+  {
     id: "afp_imponibles",
     title: "Certificado AFP",
     description: "Remuneraciones imponibles y empleador",
@@ -30,6 +59,7 @@ export const DOCUMENT_DEFINITIONS = [
     requiredForApplication: false,
     incomeDocument: true,
     expectedFields: [
+      "monthlyIncome",
       "baseSalary",
       "netSalary",
       "bonuses",
@@ -52,35 +82,6 @@ export const DOCUMENT_DEFINITIONS = [
       "currentDebtMonthly",
     ],
   },
-  {
-    id: "seniority",
-    title: "Certificado de Antiguedad",
-    description: "Antiguedad y situacion laboral",
-    icon: "LAB",
-    requiredForApplication: false,
-    expectedFields: [
-      "employerName",
-      "startDate",
-      "seniorityMonths",
-      "contractType",
-    ],
-  },
-  {
-    id: "financial_profile",
-    title: "Perfil Financiero",
-    description: "Dependientes, deuda mensual y situacion laboral",
-    icon: "FIN",
-    requiredForApplication: true,
-    manual: true,
-    expectedFields: [
-      "monthlyIncome",
-      "employmentStatus",
-      "currentDebtMonthly",
-      "noOfDependents",
-      "loanPurpose",
-      "additionalIncome",
-    ],
-  },
 ];
 
 export const REQUIRED_FOR_APPLICATION = DOCUMENT_DEFINITIONS
@@ -95,6 +96,4 @@ export const REQUIRED_ONE_OF = [
 
 export const APPLICATION_READY_STATUSES = new Set([
   "processed",
-  "manual_review",
-  "warning",
 ]);

@@ -1,5 +1,6 @@
 # Node
 node_modules/
+frontend/.npm-cache/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*

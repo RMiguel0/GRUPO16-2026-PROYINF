@@ -85,21 +85,24 @@ function extractFinancialProfile(documents) {
   const afpDoc = firstDocumentOfType(documents, ['afp_imponibles', 'afp']);
   const debtDoc = firstDocumentOfType(documents, ['cmf_debt', 'debt_report', 'debt']);
   const profileDoc = firstDocumentOfType(documents, ['financial_profile', 'profile', 'application_profile']);
+  const socialRegistryDoc = firstDocumentOfType(documents, ['social_registry', 'rsh', 'registro_social_hogares']);
 
   const salaryFields = getFields(salaryDoc);
   const afpFields = getFields(afpDoc);
   const debtFields = getFields(debtDoc);
   const profileFields = getFields(profileDoc);
+  const socialRegistryFields = getFields(socialRegistryDoc);
 
   const explicitMonthlyIncome = pickNumberFromObject(profileFields, ['monthlyIncome', 'monthly_income', 'incomeMonthly', 'netMonthlyIncome']);
+  const additionalIncome = pickNumberFromObject(profileFields, ['additionalIncome', 'additional_income']);
   const annualIncome = pickNumberFromObject(profileFields, ['annualIncome', 'income_annum', 'incomeAnnual']);
-  const salaryIncome = pickNumberFromObject(salaryFields, ['netSalary', 'baseSalary', 'monthlyIncome', 'averageMonthlyIncome']);
+  const salaryIncome = pickNumberFromObject(salaryFields, ['monthlyIncome', 'netSalary', 'baseSalary', 'averageMonthlyIncome']);
   const afpIncome = pickNumberFromObject(afpFields, ['averageTaxableIncome', 'recentTaxableIncome', 'monthlyIncome']);
 
-  const monthlyIncome = explicitMonthlyIncome || salaryIncome || afpIncome || (annualIncome ? annualIncome / 12 : null);
+  const monthlyIncome = explicitMonthlyIncome || salaryIncome || afpIncome || (annualIncome ? annualIncome / 12 : null) || additionalIncome;
 
   const currentDebtMonthlyExplicit = pickNumberFromObject(
-    { ...debtFields, ...profileFields },
+    debtFields,
     ['currentDebtMonthly', 'monthlyDebt', 'debtMonthly', 'monthlyPayment', 'estimatedMonthlyDebt'],
   );
 
@@ -112,13 +115,14 @@ function extractFinancialProfile(documents) {
   const currentDebtMonthly = currentDebtMonthlyExplicit ?? (totalDebt !== null ? totalDebt * DEBT_TOTAL_TO_MONTHLY_FACTOR : null);
 
   const noOfDependents = pickNumberFromObject(
-    { ...profileFields, ...salaryFields, ...afpFields },
-    ['noOfDependents', 'no_of_dependents', 'dependents', 'cargasFamiliares'],
+    { ...socialRegistryFields, ...profileFields, ...salaryFields, ...afpFields },
+    ['householdDependents', 'noOfDependents', 'no_of_dependents', 'dependents', 'cargasFamiliares'],
   );
 
   const employmentStatus =
     profileFields.employmentStatus ||
     profileFields.employment_status ||
+    profileFields.employmentType ||
     salaryFields.employmentStatus ||
     salaryFields.contractType ||
     afpFields.employmentStatus ||
@@ -136,9 +140,10 @@ function extractFinancialProfile(documents) {
       currentDebtMonthly,
       noOfDependents,
       employmentStatus,
+      employmentType: profileFields.employmentType || profileFields.employment_type || null,
     },
     missingFields,
-    documentsUsed: [profileDoc, salaryDoc, afpDoc, debtDoc]
+    documentsUsed: [profileDoc, socialRegistryDoc, salaryDoc, afpDoc, debtDoc]
       .filter(Boolean)
       .map((document) => ({
         id: document.id,
@@ -239,6 +244,7 @@ export async function getLoanRecommendationForUser(user) {
     currentDebtMonthly,
     noOfDependents,
     employmentStatus,
+    employmentType,
   } = financialProfile.values;
 
   const amountMin = DEFAULT_AMOUNT_MIN;
@@ -258,7 +264,7 @@ export async function getLoanRecommendationForUser(user) {
         monthlyIncome,
         currentDebtMonthly,
         noOfDependents,
-        employmentStatus,
+        employmentStatus: employmentType || employmentStatus,
         annualInterestRate: DEFAULT_ANNUAL_INTEREST_RATE,
       });
 

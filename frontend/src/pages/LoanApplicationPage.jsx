@@ -93,6 +93,7 @@ function resolveApplicant({ user, documentsByType }) {
   const afp = getFields(documentsByType.afp_imponibles);
   const debt = getFields(documentsByType.cmf_debt);
   const profile = getFields(documentsByType.financial_profile);
+  const socialRegistry = getFields(documentsByType.social_registry);
 
   const fullName =
     pickText(identity, ["fullName", "nombreCompleto"]) ||
@@ -102,14 +103,17 @@ function resolveApplicant({ user, documentsByType }) {
 
   const monthlyIncome =
     pickNumber(profile, ["monthlyIncome", "monthly_income", "incomeMonthly", "netMonthlyIncome"]) ??
-    pickNumber(salary, ["netSalary", "baseSalary", "monthlyIncome", "averageMonthlyIncome"]) ??
-    pickNumber(afp, ["averageTaxableIncome", "recentTaxableIncome", "monthlyIncome"]);
+    pickNumber(salary, ["monthlyIncome", "netSalary", "baseSalary", "averageMonthlyIncome"]) ??
+    pickNumber(afp, ["averageTaxableIncome", "recentTaxableIncome", "monthlyIncome"]) ??
+    pickNumber(profile, ["additionalIncome", "additional_income"]);
 
   const employmentStatus =
     pickText(profile, ["employmentStatus", "employment_status"]) ||
+    pickText(profile, ["employmentType", "employment_type"]) ||
     pickText(salary, ["employmentStatus", "contractType"]) ||
-    pickText(afp, ["employmentStatus"]) ||
-    "employed";
+    pickText(afp, ["employmentStatus"]);
+  const employmentType = pickText(profile, ["employmentType", "employment_type"]);
+  const additionalIncome = pickNumber(profile, ["additionalIncome", "additional_income"]);
 
   const currentDebtMonthly =
     pickNumber({ ...debt, ...profile }, ["currentDebtMonthly", "monthlyDebt", "debtMonthly", "monthlyPayment"]) ??
@@ -126,7 +130,17 @@ function resolveApplicant({ user, documentsByType }) {
     monthlyIncome,
     employmentStatus,
     currentDebtMonthly,
-    noOfDependents: pickNumber(profile, ["noOfDependents", "dependents", "cargasFamiliares"]),
+    noOfDependents: pickNumber(socialRegistry, ["householdDependents", "noOfDependents", "dependents", "cargasFamiliares"]),
+    employmentType,
+    laborStartMonth: pickNumber(profile, ["laborStartMonth"]),
+    laborStartYear: pickNumber(profile, ["laborStartYear"]),
+    laborSeniorityMonths: pickNumber(profile, ["laborSeniorityMonths", "seniorityMonths"]),
+    loanPurpose: pickText(profile, ["loanPurpose", "loan_purpose"]),
+    additionalIncome,
+    socialRegistry: {
+      socioEconomicPercent: pickNumber(socialRegistry, ["socioEconomicPercent"]),
+      assetsCount: pickNumber(socialRegistry, ["assetsCount"]),
+    },
   };
 }
 
@@ -180,11 +194,18 @@ export default function LoanApplicationPage() {
 
   const missingApplicantRequirements = useMemo(() => {
     const missing = [];
+    const isIndependent = applicant.employmentType === "independiente";
+    if (!applicant.employmentType) {
+      missing.push("Tipo de trabajador");
+    }
     if (!applicant.monthlyIncome || applicant.monthlyIncome <= 0) {
       missing.push("Ingreso mensual");
     }
     if (!applicant.employmentStatus) {
       missing.push("Situacion laboral");
+    }
+    if (isIndependent && (!applicant.additionalIncome || applicant.additionalIncome <= 0)) {
+      missing.push("Ingresos adicionales");
     }
     return missing;
   }, [applicant]);
@@ -285,6 +306,12 @@ export default function LoanApplicationPage() {
         employmentStatus: applicant.employmentStatus,
         currentDebtMonthly: applicant.currentDebtMonthly,
         noOfDependents: applicant.noOfDependents,
+        employmentType: applicant.employmentType,
+        laborStartMonth: applicant.laborStartMonth,
+        laborStartYear: applicant.laborStartYear,
+        laborSeniorityMonths: applicant.laborSeniorityMonths,
+        loanPurpose: applicant.loanPurpose,
+        additionalIncome: applicant.additionalIncome,
       },
       loan: {
         amount: simulation.amount,
@@ -299,6 +326,7 @@ export default function LoanApplicationPage() {
         salary: documentsByType.salary,
         afp_imponibles: documentsByType.afp_imponibles,
         cmf_debt: documentsByType.cmf_debt,
+        social_registry: documentsByType.social_registry,
         financial_profile: documentsByType.financial_profile,
       },
       meta: {

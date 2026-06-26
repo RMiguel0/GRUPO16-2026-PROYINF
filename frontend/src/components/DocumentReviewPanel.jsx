@@ -29,20 +29,27 @@ export default function DocumentReviewPanel({
   const isControlled = Array.isArray(controlledDocuments);
   const [localDocuments, setLocalDocuments] = useState(initialDocuments);
   const documents = isControlled ? controlledDocuments : localDocuments;
-  const [selectedId, setSelectedId] = useState(documents[0]?.id || null);
+  const employmentType = String(
+    documents.find((document) => document.id === "financial_profile")?.fields?.employmentType || ""
+  ).toLowerCase();
+  const hidesIncomeDocuments = employmentType === "independiente";
+  const visibleDocuments = hidesIncomeDocuments
+    ? documents.filter((document) => !document.incomeDocument)
+    : documents;
+  const [selectedId, setSelectedId] = useState(visibleDocuments[0]?.id || null);
 
   useEffect(() => {
-    if (!documents.some((document) => document.id === selectedId)) {
-      setSelectedId(documents[0]?.id || null);
+    if (!visibleDocuments.some((document) => document.id === selectedId)) {
+      setSelectedId(visibleDocuments[0]?.id || null);
     }
-  }, [documents, selectedId]);
+  }, [visibleDocuments, selectedId]);
 
   const selectedDocument = useMemo(
-    () => documents.find((document) => document.id === selectedId),
-    [documents, selectedId]
+    () => visibleDocuments.find((document) => document.id === selectedId),
+    [visibleDocuments, selectedId]
   );
 
-  const completedCount = documents.filter((doc) =>
+  const completedCount = visibleDocuments.filter((doc) =>
     ["processed", "manual_review", "warning", "uploaded"].includes(doc.status)
   ).length;
   const canReprocess = Boolean(onReprocess) || !isControlled;
@@ -120,7 +127,7 @@ export default function DocumentReviewPanel({
             <h1 className="text-2xl font-bold text-slate-900">
               Documentos requeridos
             </h1>
-            <p className="mt-2 text-base leading-6 text-slate-600">
+            <p className="mt-2 text-base leading-4 text-slate-600">
               {isProfile
                 ? "Carga y corrige tus documentos para reutilizarlos en futuras solicitudes."
                 : "Sube los documentos solicitados. Extraeremos la informacion automaticamente para agilizar tu solicitud."}
@@ -145,16 +152,17 @@ export default function DocumentReviewPanel({
         ) : null}
 
         <DocumentList
-          documents={documents}
+          documents={visibleDocuments}
           selectedId={selectedId}
           onSelect={handleSelect}
         />
 
-        <UploadDropzone
-          selectedDocument={selectedDocument}
-          onUploadDocument={onUploadDocument}
-          disabled={!onUploadDocument || uploadingDocumentId !== null}
-        />
+        {hidesIncomeDocuments ? (
+          <div className="mt-5 rounded-lg border border-blue-100 bg-blue-50 p-4 text-sm text-blue-800">
+            Perfil independiente: no se solicitara liquidacion de sueldo ni certificado AFP.
+          </div>
+        ) : null}
+
       </section>
 
       <section className={detailColumnClass}>
@@ -162,9 +170,11 @@ export default function DocumentReviewPanel({
           document={selectedDocument}
           onFieldChange={handleFieldChange}
           onSaveFields={onSaveFields}
+          onUploadDocument={onUploadDocument}
           onReprocess={!isProfile && canReprocess ? handleMockProcess : null}
           mode={mode}
           saving={savingDocumentId === selectedDocument?.id}
+          uploading={uploadingDocumentId === selectedDocument?.id}
         />
       </section>
 
@@ -173,7 +183,7 @@ export default function DocumentReviewPanel({
           <div className="rounded-lg bg-blue-50 px-5 py-3 text-sm text-blue-700">
             Documentos cargados:{" "}
             <strong>
-              {completedCount}/{documents.length}
+              {completedCount}/{visibleDocuments.length}
             </strong>
           </div>
 
@@ -222,46 +232,5 @@ export default function DocumentReviewPanel({
         </div>
       </footer>
     </section>
-  );
-}
-
-function UploadDropzone({ selectedDocument, onUploadDocument, disabled }) {
-  const acceptsIdentityImage = selectedDocument?.id === "identity";
-  const accept = acceptsIdentityImage
-    ? "application/pdf,image/jpeg,.jpg,.jpeg"
-    : "application/pdf";
-  const fileKindLabel = acceptsIdentityImage ? "PDF o JPG" : "PDF";
-  const label = selectedDocument
-    ? `Selecciona un ${fileKindLabel} para ${selectedDocument.title}`
-    : "Selecciona un documento";
-
-  return (
-    <label
-      className={`mt-7 flex min-h-[190px] cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-slate-300 bg-white p-6 text-center shadow-sm transition hover:border-blue-300 ${
-        disabled ? "cursor-not-allowed opacity-60" : ""
-      }`}
-    >
-      <input
-        type="file"
-        accept={accept}
-        hidden
-        disabled={disabled}
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          if (file && selectedDocument) {
-            onUploadDocument(selectedDocument.id, file);
-          }
-          event.target.value = "";
-        }}
-      />
-      <div className="mb-4 text-sm font-bold text-slate-400">{fileKindLabel}</div>
-      <p className="font-semibold text-slate-800">{label}</p>
-      <p className="mt-1 text-sm text-slate-500">
-        {acceptsIdentityImage
-          ? "Si subes JPG, el backend lo convertira a PDF con iLovePDF antes de extraer texto"
-          : "El backend procesara el archivo con iLovePDF"}
-      </p>
-      <p className="mt-4 text-sm text-slate-500">{fileKindLabel}. Max. 10MB</p>
-    </label>
   );
 }

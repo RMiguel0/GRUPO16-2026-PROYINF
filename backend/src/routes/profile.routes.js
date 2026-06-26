@@ -10,6 +10,7 @@ import {
 } from '../db/repositories/documents.repository.js';
 import { getLoanRecommendationForUser } from '../services/recommendation.service.js';
 import {
+  extractTextFromPdfWithOcr,
   convertImageToPdf,
   extractTextFromPdf,
 } from '../services/ocrpdf.service.js';
@@ -22,8 +23,8 @@ import {
 const router = Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
-const REQUIRED_DOCUMENTS = ['identity', 'afp_imponibles', 'salary', 'cmf_debt'];
-const APPLICATION_REQUIRED_DOCUMENTS = ['identity', 'cmf_debt', 'financial_profile'];
+const REQUIRED_DOCUMENTS = ['identity', 'financial_profile', 'social_registry', 'afp_imponibles', 'salary', 'cmf_debt'];
+const APPLICATION_REQUIRED_DOCUMENTS = ['identity', 'cmf_debt', 'financial_profile', 'social_registry'];
 const APPLICATION_REQUIRED_ONE_OF = [['salary', 'afp_imponibles']];
 const CREDIT_STATUS_LABELS = {
   0: 'Procesando',
@@ -139,6 +140,53 @@ function parseExtractedText(rawText, documentType) {
   return analyzeDocument(rawText, documentType);
 }
 
+function normalizeManualProfileFields(fields = {}) {
+  const laborSeniorityMonths = calculateLaborSeniorityMonths(
+    fields.laborStartMonth,
+    fields.laborStartYear,
+  );
+
+  return {
+    employmentType: fields.employmentType || '',
+    employmentStatus: fields.employmentStatus || '',
+    laborStartMonth: fields.laborStartMonth || '',
+    laborStartYear: fields.laborStartYear || '',
+    laborSeniorityMonths: laborSeniorityMonths ?? fields.laborSeniorityMonths ?? '',
+    loanPurpose: fields.loanPurpose || '',
+    additionalIncome: fields.additionalIncome || '',
+  };
+}
+
+function calculateLaborSeniorityMonths(monthValue, yearValue) {
+  const month = Number(monthValue);
+  const year = Number(yearValue);
+  if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) {
+    return null;
+  }
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  return String(Math.max(0, (currentYear - year) * 12 + (currentMonth - month)));
+}
+
+async function saveProcessedDocumentSnapshot({ userId, documentType, payload }) {
+  if (!userId) return;
+
+  await saveProcessedDocument({
+    userId,
+    documentType,
+    rawText: payload.rawText || null,
+    extractedData: {
+      documentType,
+      fields: payload.fields || {},
+      warnings: payload.warnings || [],
+      confidence: payload.confidence || null,
+    },
+    source: payload.source || null,
+  });
+}
+
 function buildExtractionDebug(originalText, cleanedText, meta = {}) {
   const original = typeof originalText === 'string' ? originalText : '';
   const cleaned = typeof cleanedText === 'string' ? cleanedText : '';
@@ -174,6 +222,15 @@ function pdfFilenameForImage(filename = 'documento.jpg') {
   return filename.replace(/\.(jpe?g)$/i, '.pdf') || 'documento.pdf';
 }
 
+function documentProcessingMessage(error) {
+  const message = String(error?.message || '');
+  if (/401|unauthorized|signature verification failed/i.test(message)) {
+    return 'No se pudo validar la conexion con iLovePDF. Intenta subir el documento nuevamente; si se repite, revisa las credenciales de iLovePDF.';
+  }
+
+  return message || 'No se pudo procesar el documento.';
+}
+
 async function handleDocumentUpload(req, res, next) {
   const owner = requireDocumentOwner(req, res);
   if (!owner) return;
@@ -206,15 +263,42 @@ async function handleDocumentUpload(req, res, next) {
     const pdfFilename = isIdentityImage
       ? pdfFilenameForImage(req.file.originalname)
       : req.file.originalname;
-    const iloveRawText = await extractTextFromPdf(pdfBuffer, pdfFilename);
+    const shouldForceOcr = isIdentityImage;
+    let extractError = null;
+    let iloveRawText = '';
+    if (shouldForceOcr) {
+      iloveRawText = await extractTextFromPdfWithOcr(pdfBuffer, pdfFilename);
+    } else {
+      try {
+        iloveRawText = await extractTextFromPdf(pdfBuffer, pdfFilename);
+      } catch (err) {
+        extractError = err;
+      }
+    }
     let rawText = sanitizeExtractedText(iloveRawText);
     let originalRawText = iloveRawText;
-    let extractionSource = isIdentityImage ? 'ilovepdf_imagepdf_extract' : 'ilovepdf';
+    let extractionSource = shouldForceOcr ? 'ilovepdf_imagepdf_pdfocr_extract' : 'ilovepdf';
+    let usedOcrFallback = shouldForceOcr;
+
+    if (!shouldForceOcr && !hasMeaningfulExtractedText(rawText)) {
+      try {
+        iloveRawText = await extractTextFromPdfWithOcr(pdfBuffer, pdfFilename);
+      } catch (err) {
+        throw extractError || err;
+      }
+      rawText = sanitizeExtractedText(iloveRawText);
+      originalRawText = iloveRawText;
+      extractionSource = 'ilovepdf_pdfocr_extract';
+      usedOcrFallback = true;
+    }
 
     const debugExtraction = buildExtractionDebug(originalRawText, rawText, {
       sourceUsed: extractionSource,
       inputMimeType: req.file.mimetype,
       convertedToPdf: isIdentityImage,
+      usedOcr: usedOcrFallback,
+      ocrLanguages: usedOcrFallback ? ['spa', 'eng'] : null,
+      initialExtractError: extractError?.message || null,
       convertedPdfFilename: isIdentityImage ? pdfFilename : null,
       imageToPdfOptions: isIdentityImage
         ? {
@@ -261,8 +345,10 @@ async function handleDocumentUpload(req, res, next) {
     };
 
     await updateDocumentSlot({ userId: owner.userId, rut: owner.rut, documentType, payload });
+    await saveProcessedDocumentSnapshot({ userId: owner.userId, documentType, payload });
     return res.json({ documentType, document: payload, debugExtraction });
   } catch (err) {
+    const errorMessage = documentProcessingMessage(err);
     const payload = {
       ...emptyDocumentPayload(documentType),
       status: 'error',
@@ -271,7 +357,7 @@ async function handleDocumentUpload(req, res, next) {
       processedAt: new Date().toISOString(),
       fileName: req.file.originalname,
       mimeType: req.file.mimetype,
-      errors: [err.message || 'No se pudo procesar el documento.'],
+      errors: [errorMessage],
     };
 
     try {
@@ -282,7 +368,7 @@ async function handleDocumentUpload(req, res, next) {
 
     return res.status(422).json({
       error: 'DOCUMENT_PROCESSING_FAILED',
-      message: err.message || 'No se pudo procesar el documento.',
+      message: errorMessage,
       documentType,
       document: payload,
     });
@@ -306,13 +392,16 @@ async function handleDocumentFieldsUpdate(req, res, next) {
 
     const row = await findDocumentsByUserId(owner.userId, owner.rut);
     const current = normalizeDocumentsRow(row)[documentType];
+    const normalizedFields = documentType === 'financial_profile'
+      ? normalizeManualProfileFields({ ...(current.fields || {}), ...fields })
+      : fields;
     const payload = {
       ...current,
       status: 'processed',
       source: current.source || 'manual',
       fields: {
         ...(current.fields || {}),
-        ...fields,
+        ...normalizedFields,
       },
       warnings: [],
       errors: [],
@@ -321,6 +410,7 @@ async function handleDocumentFieldsUpdate(req, res, next) {
     };
 
     await updateDocumentSlot({ userId: owner.userId, rut: owner.rut, documentType, payload });
+    await saveProcessedDocumentSnapshot({ userId: owner.userId, documentType, payload });
     return res.json({ documentType, document: payload });
   } catch (err) {
     return next(err);

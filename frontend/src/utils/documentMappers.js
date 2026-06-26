@@ -57,13 +57,30 @@ export function mapDocumentsRowToPanelDocuments(documentsRow = {}) {
   );
 }
 
+function hasFieldValue(value) {
+  if (value === null || value === undefined) return false;
+  if (typeof value === "number") return Number.isFinite(value);
+  return String(value).trim() !== "";
+}
+
+function hasExpectedFields(document) {
+  const expectedFields = Array.isArray(document?.expectedFields) ? document.expectedFields : [];
+  if (expectedFields.length === 0) return true;
+
+  return expectedFields.every((fieldName) =>
+    hasFieldValue(document?.fields?.[fieldName])
+  );
+}
+
 export function isDocumentReadyForApplication(document) {
-  return APPLICATION_READY_STATUSES.has(document?.status);
+  return APPLICATION_READY_STATUSES.has(document?.status) && hasExpectedFields(document);
 }
 
 export function getMissingApplicationRequirements(documents) {
   const missing = [];
   const byId = Object.fromEntries((documents || []).map((document) => [document.id, document]));
+  const employmentType = String(byId.financial_profile?.fields?.employmentType || "").toLowerCase();
+  const incomeDocumentsRequired = employmentType !== "independiente";
 
   for (const documentType of REQUIRED_FOR_APPLICATION) {
     if (!isDocumentReadyForApplication(byId[documentType])) {
@@ -72,9 +89,11 @@ export function getMissingApplicationRequirements(documents) {
     }
   }
 
-  for (const group of REQUIRED_ONE_OF) {
-    if (!group.some((documentType) => isDocumentReadyForApplication(byId[documentType]))) {
-      missing.push("Liquidacion de Sueldo o Certificado AFP");
+  if (incomeDocumentsRequired) {
+    for (const group of REQUIRED_ONE_OF) {
+      if (!group.some((documentType) => isDocumentReadyForApplication(byId[documentType]))) {
+        missing.push("Liquidacion de Sueldo o Certificado AFP");
+      }
     }
   }
 

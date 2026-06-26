@@ -8,7 +8,7 @@ export const DOCUMENT_COLUMNS = {
   afp_imponibles: 'afp_imponibles',
   salary: 'salary',
   cmf_debt: 'cmf_debt',
-  seniority: 'seniority',
+  social_registry: 'social_registry',
   financial_profile: 'financial_profile',
 };
 
@@ -34,7 +34,7 @@ export async function ensureDocumentsTable() {
       afp_imponibles jsonb NOT NULL DEFAULT '{}'::jsonb,
       salary jsonb NOT NULL DEFAULT '{}'::jsonb,
       cmf_debt jsonb NOT NULL DEFAULT '{}'::jsonb,
-      seniority jsonb NOT NULL DEFAULT '{}'::jsonb,
+      social_registry jsonb NOT NULL DEFAULT '{}'::jsonb,
       financial_profile jsonb NOT NULL DEFAULT '{}'::jsonb,
 
       created_at timestamp NOT NULL DEFAULT NOW(),
@@ -50,7 +50,7 @@ export async function ensureDocumentsTable() {
       ADD COLUMN IF NOT EXISTS afp_imponibles jsonb NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS salary jsonb NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS cmf_debt jsonb NOT NULL DEFAULT '{}'::jsonb,
-      ADD COLUMN IF NOT EXISTS seniority jsonb NOT NULL DEFAULT '{}'::jsonb,
+      ADD COLUMN IF NOT EXISTS social_registry jsonb NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS financial_profile jsonb NOT NULL DEFAULT '{}'::jsonb,
       ADD COLUMN IF NOT EXISTS created_at timestamp NOT NULL DEFAULT NOW(),
       ADD COLUMN IF NOT EXISTS updated_at timestamp NOT NULL DEFAULT NOW()
@@ -176,6 +176,7 @@ export async function ensureDocumentsTable() {
   await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_afp_gin ON documents USING gin (afp_imponibles)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_salary_gin ON documents USING gin (salary)');
   await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_cmf_gin ON documents USING gin (cmf_debt)');
+  await pool.query('CREATE INDEX IF NOT EXISTS idx_documents_social_registry_gin ON documents USING gin (social_registry)');
 }
 
 function requireUserId(userId) {

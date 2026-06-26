@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React from "react";
 
 const FIELD_LABELS = {
   nombres: "Nombres",
@@ -17,6 +17,7 @@ const FIELD_LABELS = {
 
   baseSalary: "Sueldo Base",
   netSalary: "Sueldo Liquido",
+  monthlyIncome: "Ingreso mensual calculado",
   bonuses: "Bonos/Comisiones",
   payrollDeductions: "Descuentos por Planilla",
   contractType: "Tipo de Contrato",
@@ -28,22 +29,89 @@ const FIELD_LABELS = {
   paymentStatus: "Estado de Pago",
 
   startDate: "Fecha de inicio laboral",
-  monthlyIncome: "Ingreso mensual",
   currentDebtMonthly: "Deuda mensual actual",
   noOfDependents: "Dependientes",
+  employmentType: "Tipo de trabajador",
   employmentStatus: "Situacion laboral",
+  laborStartMonth: "Mes de inicio laboral",
+  laborStartYear: "A\u00f1o de inicio laboral",
+  laborSeniorityMonths: "Antiguedad laboral en meses",
   loanPurpose: "Destino del credito",
   additionalIncome: "Ingresos adicionales",
   seniorityMonths: "Antiguedad en meses",
+
+  socioEconomicPercent: "Porcentaje de nivel socioeconomico",
+  householdDependents: "Personas carga en el domicilio",
+  assetsCount: "Cantidad de bienes",
 };
+
+const FIELD_OPTIONS = {
+  employmentType: [
+    { value: "", label: "Seleccionar" },
+    { value: "dependiente", label: "Dependiente" },
+    { value: "independiente", label: "Independiente" },
+  ],
+  employmentStatus: [
+    { value: "", label: "Seleccionar" },
+    { value: "empleado", label: "Empleado" },
+    { value: "desempleado", label: "Desempleado" },
+    { value: "independiente", label: "Independiente" },
+    { value: "pensionado", label: "Pensionado" },
+  ],
+  loanPurpose: [
+    { value: "", label: "Seleccionar" },
+    { value: "libre_disponibilidad", label: "Libre disponibilidad" },
+    { value: "consolidacion_deudas", label: "Consolidacion de deudas" },
+    { value: "educacion", label: "Educacion" },
+    { value: "salud", label: "Salud" },
+    { value: "emprendimiento", label: "Emprendimiento" },
+    { value: "vivienda", label: "Vivienda" },
+    { value: "vehiculo", label: "Vehiculo" },
+  ],
+};
+
+const MONTH_OPTIONS = [
+  { value: "", label: "Seleccionar" },
+  { value: "1", label: "Enero" },
+  { value: "2", label: "Febrero" },
+  { value: "3", label: "Marzo" },
+  { value: "4", label: "Abril" },
+  { value: "5", label: "Mayo" },
+  { value: "6", label: "Junio" },
+  { value: "7", label: "Julio" },
+  { value: "8", label: "Agosto" },
+  { value: "9", label: "Septiembre" },
+  { value: "10", label: "Octubre" },
+  { value: "11", label: "Noviembre" },
+  { value: "12", label: "Diciembre" },
+];
+
+function yearOptions() {
+  const currentYear = new Date().getFullYear();
+  const options = [{ value: "", label: "Seleccionar" }];
+  for (let year = currentYear; year >= currentYear - 60; year -= 1) {
+    options.push({ value: String(year), label: String(year) });
+  }
+  return options;
+}
+
+const NUMBER_FIELDS = new Set([
+  "additionalIncome",
+  "laborSeniorityMonths",
+  "socioEconomicPercent",
+  "householdDependents",
+  "assetsCount",
+]);
 
 export default function DocumentDetailCard({
   document,
   onFieldChange,
   onSaveFields,
+  onUploadDocument,
   onReprocess,
   mode = "application",
   saving = false,
+  uploading = false,
 }) {
   if (!document) return null;
 
@@ -91,7 +159,11 @@ export default function DocumentDetailCard({
         </div>
       </header>
 
-      <DocumentPreview document={document} />
+      <DocumentPreview
+        document={document}
+        onUploadDocument={onUploadDocument}
+        uploading={uploading}
+      />
 
       {document.status === "processing" ? (
         <ProcessingState />
@@ -104,13 +176,67 @@ export default function DocumentDetailCard({
   );
 }
 
-function DocumentPreview({ document }) {
+function DocumentPreview({ document, onUploadDocument, uploading }) {
   const isIdentity = document.id === "identity";
   const isMissing = document.status === "missing";
+  const isError = document.status === "error";
+  const hasExtractedData = !isMissing && !isError;
+  const canUpload = Boolean(onUploadDocument) && !document.manual;
+  const acceptsIdentityImage = document.id === "identity";
+  const accept = acceptsIdentityImage
+    ? "application/pdf,image/jpeg,.jpg,.jpeg"
+    : "application/pdf";
+  const fileKindLabel = acceptsIdentityImage ? "PDF o JPG" : "PDF";
+  const panelLabel = uploading
+    ? "Procesando..."
+    : isError
+      ? "Reintentar subida"
+      : isMissing
+        ? "Subir documento"
+        : canUpload
+          ? "Datos extraidos - Subir documento"
+          : "Datos extraidos";
+  const panelStateClass = isError
+    ? "bg-red-50 text-red-700"
+    : hasExtractedData
+      ? "bg-emerald-50 text-emerald-700"
+      : "bg-slate-50 text-slate-600";
+  const detailText = uploading
+    ? "Procesando documento"
+    : isError
+      ? "No procesado"
+      : isMissing
+        ? `Selecciona ${fileKindLabel}`
+        : "Documento cargado";
+  const helperText = isError
+    ? "Haz clic para reintentar"
+    : hasExtractedData
+      ? "Haz clic para subir otro"
+      : "Max. 10MB";
 
   return (
     <div className="mb-8 flex justify-center">
-      <div className="relative flex h-[200px] w-[380px] items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 via-sky-100 to-orange-50 shadow-inner">
+      <label
+        className={`relative flex h-[200px] w-[380px] items-center justify-center rounded-xl border border-slate-200 bg-gradient-to-br from-blue-50 via-sky-100 to-orange-50 shadow-inner ${
+          canUpload ? "cursor-pointer transition hover:border-blue-300" : ""
+        } ${uploading ? "opacity-70" : ""}`}
+      >
+        {canUpload ? (
+          <input
+            type="file"
+            accept={accept}
+            hidden
+            disabled={uploading}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                onUploadDocument(document.id, file);
+              }
+              event.target.value = "";
+            }}
+          />
+        ) : null}
+
         {isIdentity ? (
           <div className="h-[155px] w-[300px] rounded-xl border border-sky-200 bg-white/50 p-4 shadow-sm">
             <div className="flex items-center justify-between text-xs font-bold text-blue-700">
@@ -129,36 +255,56 @@ function DocumentPreview({ document }) {
         ) : (
           <div className="text-center">
             <div className="mx-auto mb-3 flex h-16 w-16 items-center justify-center rounded-xl bg-white text-sm font-bold shadow">
-              PDF
+              {fileKindLabel}
             </div>
             <p className="font-semibold text-slate-800">
-              {isMissing ? "Documento pendiente" : "Documento cargado"}
+              {detailText}
             </p>
+            {canUpload ? (
+              <p className="mt-1 text-xs text-slate-500">{helperText}</p>
+            ) : null}
           </div>
         )}
 
-        <div className={`absolute left-1/2 top-1/2 flex -translate-x-1/2 -translate-y-1/2 items-center gap-2 rounded-xl px-5 py-3 text-sm font-bold shadow ${
-          isMissing ? "bg-slate-50 text-slate-600" : "bg-emerald-50 text-emerald-700"
-        }`}>
-          {isMissing ? "Sin datos" : "Datos extraidos"}
+        <div className={`absolute left-1/2 top-1/2 flex max-w-[240px] -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-xl px-5 py-3 text-center text-sm font-bold shadow ${panelStateClass}`}>
+          {panelLabel}
         </div>
-      </div>
+      </label>
     </div>
   );
 }
 
 function FieldsEditor({ document, onFieldChange }) {
-  const [newFieldName, setNewFieldName] = useState("");
-  const [newFieldValue, setNewFieldValue] = useState("");
   const fields = document.fields || {};
+  const dynamicOptions = {
+    ...FIELD_OPTIONS,
+    laborStartMonth: MONTH_OPTIONS,
+    laborStartYear: yearOptions(),
+  };
 
-  function addField() {
-    const fieldName = newFieldName.trim();
-    if (!fieldName) return;
+  function calculateSeniorityMonths(nextFields) {
+    const month = Number(nextFields.laborStartMonth);
+    const year = Number(nextFields.laborStartYear);
+    if (!Number.isInteger(month) || month < 1 || month > 12 || !Number.isInteger(year)) {
+      return "";
+    }
 
-    onFieldChange(document.id, fieldName, newFieldValue);
-    setNewFieldName("");
-    setNewFieldValue("");
+    const now = new Date();
+    const currentMonth = now.getMonth() + 1;
+    const currentYear = now.getFullYear();
+    return String(Math.max(0, (currentYear - year) * 12 + (currentMonth - month)));
+  }
+
+  function updateField(fieldName, value) {
+    onFieldChange(document.id, fieldName, value);
+
+    if (fieldName === "laborStartMonth" || fieldName === "laborStartYear") {
+      const nextFields = {
+        ...fields,
+        [fieldName]: value,
+      };
+      onFieldChange(document.id, "laborSeniorityMonths", calculateSeniorityMonths(nextFields));
+    }
   }
 
   return (
@@ -175,40 +321,36 @@ function FieldsEditor({ document, onFieldChange }) {
             {FIELD_LABELS[fieldName] || fieldName}
           </label>
 
-          <input
-            type="text"
-            value={value ?? ""}
-            onChange={(event) =>
-              onFieldChange(document.id, fieldName, event.target.value)
-            }
-            className="h-11 rounded-lg border border-slate-300 px-4 text-base text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-          />
+          {dynamicOptions[fieldName] ? (
+            <select
+              value={value ?? ""}
+              onChange={(event) =>
+                updateField(fieldName, event.target.value)
+              }
+              className="h-11 rounded-lg border border-slate-300 px-4 text-base text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+            >
+              {dynamicOptions[fieldName].map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          ) : (
+            <input
+              type={NUMBER_FIELDS.has(fieldName) ? "number" : "text"}
+              min={NUMBER_FIELDS.has(fieldName) ? "0" : undefined}
+              readOnly={fieldName === "laborSeniorityMonths"}
+              value={value ?? ""}
+              onChange={(event) =>
+                updateField(fieldName, event.target.value)
+              }
+              className={`h-11 rounded-lg border border-slate-300 px-4 text-base text-slate-700 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 ${
+                fieldName === "laborSeniorityMonths" ? "bg-slate-50" : ""
+              }`}
+            />
+          )}
         </div>
       ))}
-
-      <div className="grid gap-3 rounded-lg border border-dashed border-slate-300 bg-slate-50 p-4 sm:grid-cols-[1fr_1fr_auto]">
-        <input
-          type="text"
-          value={newFieldName}
-          onChange={(event) => setNewFieldName(event.target.value)}
-          placeholder="campo"
-          className="h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        />
-        <input
-          type="text"
-          value={newFieldValue}
-          onChange={(event) => setNewFieldValue(event.target.value)}
-          placeholder="valor"
-          className="h-10 rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-        />
-        <button
-          type="button"
-          onClick={addField}
-          className="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-100"
-        >
-          Agregar
-        </button>
-      </div>
     </div>
   );
 }
