@@ -11,6 +11,21 @@ const upload = multer({ storage: multer.memoryStorage() });
 const client = new vision.ImageAnnotatorClient();
 
 // ---------------- Helpers: RUT y Nombre ----------------
+function calculateRutDv(res) {
+  if (res === 11) return '0';
+  if (res === 10) return 'K';
+  return String(res);
+}
+
+function formatRutBody(body) {
+  const groups = [];
+  for (let end = body.length; end > 0; end -= 3) {
+    const start = Math.max(0, end - 3);
+    groups.unshift(body.slice(start, end));
+  }
+  return groups.join('.');
+}
+
 function isValidRut(body, dv) {
   let sum = 0, mul = 2;
   for (let i = body.length - 1; i >= 0; i--) {
@@ -18,7 +33,7 @@ function isValidRut(body, dv) {
     mul = mul === 7 ? 2 : mul + 1;
   }
   const res = 11 - (sum % 11);
-  const dvCalc = res === 11 ? '0' : res === 10 ? 'K' : String(res);
+  const dvCalc = calculateRutDv(res);
   return dvCalc === dv.toUpperCase();
 }
 
@@ -75,7 +90,7 @@ function findRutInfo(rawText = '') {
   scored.sort((a, b) => b.score - a.score);
   const best = scored[0];
 
-  const withDots = best.body.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  const withDots = formatRutBody(best.body);
   const rut = `${withDots}-${best.dv}`;
   return { rut, index: best.lineIdx, lines };
 }
